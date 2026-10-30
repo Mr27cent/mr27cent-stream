@@ -13,7 +13,7 @@
 Eigene Stream-Webseite im Savannen-Look mit Live-Dashboard, Clip des Jahres,
 Highscores (Hangman & Idle-Game), Streamplan, Spiele-Historie, Emotes,
 Über mich / Setup / FAQ / Regeln, Socials, Discord und Tipp-Link –
-und **Die Herde**: Jeder Zuschauer wächst mit seiner Zuschauzeit vom Kitz zur Leitgazelle.
+und **Die Herde**: Jeder Zuschauer wächst mit seiner Zuschauzeit vom Kitz zur Universumsgazelle.
 Tag/Nacht-Ansicht über den ☀️/🌙-Knopf oben rechts.
 
 Bereiche als Reiter im Seitenmenü links (am Computer über ☰ einklappbar, am Handy aufklappbar).
@@ -27,11 +27,6 @@ Bereiche als Reiter im Seitenmenü links (am Computer über ☰ einklappbar, am 
 Unter `…/#partner` gibt es eine eigene Seite für Sponsoren (nicht im Menü, verlinkt unten
 in der Fußzeile und unter „Community“). Texte, Angebote und E-Mail stehen in `config.js`
 unter `partner`. Follower und Zuschauerzahl kommen live. `avgViewers` nur ehrlich eintragen.
-
-## Besucherstatistik
-Cloudflare Web Analytics (ohne Cookies). Einschalten im Cloudflare-Dashboard:
-Workers & Pages → Projekt → *Metriken* → *Web Analytics aktivieren*. Die Sicherheits-Header
-in `_headers` erlauben das Messskript bereits.
 
 ## Dateien
 

@@ -64,7 +64,7 @@ window.STREAM_CONFIG = {
       { hours: 620,  name: "Wächter der Herde" },
       { hours: 720,  name: "Sternenhimmel-Gazelle" },
       { hours: 850,  name: "Weise der Savanne" },
-      { hours: 1000, name: "Leitgazelle" }
+      { hours: 1000, name: "Universumsgazelle" }
     ],
     // Aussehen der Gazellen: jede Stufe hat ein eigenes Bild (freigestellt,
     // Blick nach rechts). Fehlt eins, gilt das Bild der letzten Stufe davor.

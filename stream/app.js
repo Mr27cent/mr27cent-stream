@@ -736,7 +736,7 @@
           + '<div class="bar-label">Noch ' + fmtHours(Math.max(0, (nx.hours - h) * 60)) + " bis „" + esc(nx.name) + "“</div>"
         : '<div class="bar-label">🏆 Ausgewachsen! Mehr geht in dieser Saison nicht.</div>')
       + '<div class="bar"><span style="width:' + yearPct + '%"></span></div>'
-      + '<div class="bar-label">' + yearPct + " % bis zur Leitgazelle (" + fmtNum(HERD.maxHours) + " h)</div>"
+      + '<div class="bar-label">' + yearPct + " % bis zur Universumsgazelle (" + fmtNum(HERD.maxHours) + " h)</div>"
       + badgesHtml(m, idx, h)
       + "</div></div>";
   }
@@ -748,7 +748,7 @@
     if (hours >= 1) b.push(["🌱", "Erste Stunde"]);
     if (hours >= 24) b.push(["☀️", "Ein ganzer Tag"]);
     if (hours >= 100) b.push(["🔥", "100 Stunden"]);
-    if (hours >= HERD.maxHours) b.push(["👑", "Leitgazelle"]);
+    if (hours >= HERD.maxHours) b.push(["👑", "Universumsgazelle"]);
     if (idx < 3) b.push(["🏆", "Top 3 der Herde"]);
     else if (idx < 10) b.push(["⭐", "Top 10 der Herde"]);
     var hs = (state.data && state.data.highscores) || {};

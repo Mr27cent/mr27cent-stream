@@ -69,7 +69,7 @@ var HERD_STAGES = [
   [125, "Kleine Hörner"], [150, "Savannenspringer"], [185, "Dornbusch-Slalomer"],
   [225, "Herdenmitglied"], [270, "Spurenleser"], [320, "Windschnell"], [380, "Abendrot-Gazelle"],
   [450, "Löwenschreck"], [530, "Graslandwächter"], [620, "Wächter der Herde"],
-  [720, "Sternenhimmel-Gazelle"], [850, "Weise der Savanne"], [1000, "Leitgazelle"]
+  [720, "Sternenhimmel-Gazelle"], [850, "Weise der Savanne"], [1000, "Universumsgazelle"]
 ];
 // Lurker-Schutz: Namen erscheinen nur, wenn jemand selbst „!herde“ schreibt.
 // Blatt SICHTBAR: Login | seit   (wird automatisch angelegt)
