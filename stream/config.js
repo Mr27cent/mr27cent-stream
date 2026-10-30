@@ -133,8 +133,8 @@ window.STREAM_CONFIG = {
   // kommen live von Twitch, alles andere steht hier.
   partner: {
     email: "mr27cent@gmail.com",          // TODO: später z. B. kontakt@mr27cent.de
-    headline: "Rocket League. Eigene Show-Formate. Eine Community, die mitspielt.",
-    intro: "Ich bin Mr27cent und streame seit Mai 2019 regelmäßig auf Twitch – auf Deutsch, chillig, kreativ und mit trockenem Humor. Mein Schwerpunkt: Rocket League, selbst entwickelte Event-Formate mit anderen Streamern und eine Community, die über Spiele, Rätsel und die Herde direkt Teil des Kanals ist.",
+    headline: "Rocket League & Elden Ring. Eigene Show-Formate. Eine Community, die mitspielt.",
+    intro: "Ich bin Mr27cent und streame seit Mai 2019 regelmäßig auf Twitch – auf Deutsch, chillig, kreativ und mit trockenem Humor. Meine Hauptspiele: Rocket League und Elden Ring – dazu selbst entwickelte Event-Formate mit anderen Streamern und eine Community, die über Spiele, Rätsel und die Herde direkt Teil des Kanals ist.",
     // Ø Zuschauer werden automatisch gemessen (Blatt ZUSCHAUER) und nach 2 Wochen angezeigt.
     // Nur falls du vorher schon einen Wert zeigen willst (z. B. aus TwitchTracker), hier eintragen.
     avgViewers: "",
@@ -145,8 +145,8 @@ window.STREAM_CONFIG = {
       { icon: "📆", label: "Streams", value: "ca. 4× / Woche", hint: "sonntags lange Streams", auto: "streams" }
     ],
     highlights: [
-      { icon: "🚗", title: "Rocket League im Fokus",
-        text: "Seit Jahren mein Hauptspiel: Ranked, Community-Matches und Turniere – genau das, wofür die Leute einschalten." },
+      { icon: "🎮", title: "Rocket League & Elden Ring",
+        text: "Meine Hauptspiele: Rocket League mit Ranked, Community-Matches und Turnieren – und Elden Ring mit Bosskämpfen, bei denen der Chat mitfiebert." },
       { icon: "🏆", title: "Turniere & eSports",
         text: "Eigene Rocket-League-Community-Turniere und mit Team BOPFARMY im DFB eSports Rival Rush." },
       { icon: "🎭", title: "Eigene Show-Formate",
