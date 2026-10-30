@@ -1,0 +1,67 @@
+@font-face {
+  font-family: "Lilita One";
+  font-weight: 400;
+  src: url("fonts/lilita-one-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Nunito";
+  font-weight: 400 800;
+  src: url("fonts/nunito-var.woff2") format("woff2");
+}
+
+:root {
+  --panel-solid: rgba(34, 20, 26, .92);
+  --text: #f6e6cf;
+  --text-dim: #d9bf9f;
+  --accent: #f29a3a;
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  font-family: "Nunito", sans-serif;
+}
+
+/* Aufstiegs-Meldungen – zwischen den Meldungen ist das Overlay komplett leer */
+.toasts {
+  position: absolute;
+  left: 50%;
+  top: 20px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+body.bottom .toasts { top: auto; bottom: 20px; }
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 28px 10px 14px;
+  border-radius: 999px;
+  background: var(--panel-solid);
+  border: 2px solid var(--accent);
+  color: var(--text);
+  box-shadow: 0 6px 24px rgba(0,0,0,.4);
+  font-size: 24px;
+  font-weight: 800;
+  white-space: nowrap;
+  animation: toast-in .6s cubic-bezier(.2, 1.4, .4, 1) both;
+}
+.toast.out { animation: toast-out .6s ease-in both; }
+.toast .t-icon { font-size: 36px; }
+.toast .t-gazelle {
+  height: 72px;
+  width: auto;
+  filter: drop-shadow(0 3px 4px rgba(0,0,0,.5));
+  animation: hop .6s ease-in-out 2;
+}
+.toast b { color: var(--accent); font-family: "Lilita One", sans-serif; font-weight: 400; font-size: 28px; }
+.toast small { display: block; font-size: 17px; color: var(--text-dim); font-weight: 700; }
+@keyframes toast-in  { from { opacity: 0; transform: translateY(-30px) scale(.9); } }
+@keyframes toast-out { to   { opacity: 0; transform: translateY(-20px) scale(.95); } }
+@keyframes hop { 50% { transform: translateY(-10px); } }

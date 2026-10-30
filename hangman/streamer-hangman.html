@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><title>Streamer-Hangman</title>
+<style>
+html{font-size:1vw}
+*{box-sizing:border-box}
+body{margin:0;background:transparent;color:#efeff1;font-family:"Trebuchet MS","Segoe UI",Arial,sans-serif;overflow:hidden}
+#card{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;gap:2rem;padding:2rem 2.2rem;border-radius:1.6rem;background:rgba(24,24,27,.92);border:.18rem solid #9146ff;box-shadow:0 1rem 3rem rgba(0,0,0,.45)}
+#main{width:46rem}
+#cat{font-size:1.7rem;font-weight:700;color:#bf94ff;margin-bottom:1rem}
+#word{display:flex;flex-wrap:wrap;gap:.6rem 1.6rem;min-height:3.6rem}
+.g{display:flex;gap:.3rem}
+.t{width:2.5rem;height:3.4rem;border-radius:.5rem;background:#26262c;border-bottom:.25rem solid #3a3a3d;display:flex;align-items:center;justify-content:center;font-size:2.1rem;font-weight:800;color:#ffffff}
+.t.on{background:#9146ff;border-bottom-color:#772ce8;animation:pop .35s}
+@keyframes pop{50%{transform:translateY(-.5rem) scale(1.12)}}
+#miss{margin-top:1.2rem;min-height:2.2rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;font-size:1.2rem;color:#adadb8}
+.m{background:#5a1616;color:#ff9a98;border-radius:.4rem;padding:.1rem .6rem;font-weight:700}
+#log{margin-top:1rem;min-height:5.6rem;font-size:1.3rem;line-height:1.4;color:#adadb8}
+#log div:first-child{color:#fff}
+#help{margin-top:1rem;font-size:1.1rem;line-height:1.4;color:#848494}
+#side{width:18rem;border-left:.12rem solid #3a3a3d;padding-left:2rem}
+#side h2{margin:0 0 1rem;font-size:1.5rem;color:#bf94ff}
+.r{display:flex;justify-content:space-between;gap:1rem;font-size:1.2rem;margin-bottom:.4rem}
+.r span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.r b{color:#bf94ff}
+#test{position:fixed;left:0;right:0;bottom:0;padding:8px;background:#000c}
+#test input{width:100%;font-size:16px;padding:6px}
+</style></head><body>
+<div id="card">
+ <div id="main">
+  <div id="cat"></div><div id="word"></div><div id="miss"></div><div id="log"></div>
+  <div id="help"><div>!e rät den Buchstaben E, !wort HAUS rät das ganze Wort.</div><div>Nach einem Fehler gibt es 10 Sekunden Pause.</div></div>
+ </div>
+ <div id="side"><h2>All-Time Top 10</h2><div id="rows"></div></div>
+</div>
+<script>
+const P=new URLSearchParams(location.search),CH=(P.get('channel')||'mr27cent').toLowerCase();
+// Punkte an die Webseite melden (Google Apps Script). Der Schlüssel muss gleich sein
+// wie die Skripteigenschaft HANGMAN_KEY. Leer lassen = nichts wird gesendet.
+const SYNC_URL='https://script.google.com/macros/s/AKfycbysZsOJ8Uk_01aqrhaje84PEMDjHCKsxsarFInhH3PDn9HqP2XS367OWrdwl5sR9dr4hg/exec';
+const SYNC_KEY='';   // eigenen Schlüssel eintragen (= HANGMAN_KEY)
+const SYNC_MS=30000;
+const CD=10000,STALL=60000,PAUSE=7000;
+// Wortliste: Kategorie -> Wörter, getrennt mit |  (einfach erweiterbar)
+const W={
+'Mr27cent':'Mr27cent|Gazelle|Savanne|Lostrommel|Kugel|Bogenschütze|Ballon|Pfeil und Bogen|Zielscheibe|Starting Soon|Highscore|Leaderboard|Bits Dank|KI Stimme|Minigame|Chatspiel|Hangman|Countdown|Gewinner'.split('|'),
+'Deutsche Streamer':'MontanaBlack|Trymacs|Papaplatte|Knossi|BastiGHG|EliasN97|Rewinside|Amar|Letshe|Gronkh|ELoTRiX|HandOfBlood|RezonFN|Zarbex|xRohat|MckyTV|Rumathra|SidneyEweka|Sascha|LetsHugoTV|NiklasWilson|Vadeal|GTimeTV|HoneyPuu|INSCOPE21TV|Fibii|PietSmiet|Gnu Live|Rezo|AnniTheDuck|xTheSolutionTV|Noahreyli|NoWay4u|Giggand|KamoLRF|Repaz|SparkOfPhoenix|Chefstrobel|GamerBrother|HamedLoco|Katoo|HerrReff|Harmii|Mertabimula|CastCrafter|Mexify|Jordan Semih|Schradin|Orangemorange|BigSpinCR|gTasty|Dhalucard|JannisZ|Fritz Meinecke|Zombey|PainLivestream|TisiSchubech|Ernesto|Nooreax|Marco SCM|Metashi|Moji|TrilluXe|Maxim|Agurin|Apored|Mialiliaa|RocketBeans|Mahluna|Krokoboss|iBlali|Timgioh|Marli|HeyStan|Fabo|Shlorox|Wichtiger|MortenRoyale|Naguura|GetOnMyLvL|Eldos|Edizderbreite|KuchenTV|Tolkin|Niekbeats|Sturmwaffel|Staiy|Raskology|Sola|Reeze|Danielslump|KDRkitten|DerKellerYT|KubaFPS|Sintica|FaroooYT|Vicotryona|Moondye7'.split('|'),
+'Streamsprache':'Hype|Lurker|Pog|Kappa|Copium|Ratio|Clutch|Ace|Noob|Camper|Smurf|Tryhard|Nerf|Buff|Grinden|Farmen|Lag|Ping|Rage Quit|Speedrun|Loot|Drop|Respawn|Wipe|Carry|Tilt|Toxic|Meta|Skin|Patch|Season|Battle Pass|Lootbox|Boss Fight|Endboss|Checkpoint|Cheater|Bug|Glitch|Hitbox|Headshot|Killstreak|Spawn|Cooldown|Follower|Subscriber|Prime|Bits|Cheer|Raid|Emote|Cringe|Backseat|Copypasta|Shoutout|Hype Train|Clip|Highlight|Offline|Live|Zuschauer|Abonnent|Streamer|Chatter|Stammgast|Zocken|Zocker|Just Chatting|Vibe|Banger|Insider|Meme|Troll|Spoiler|Timeout|Bann|Moderator|Community|Giveaway|Gewinnspiel|Sheesh|Gigachad|Wholesome|Rizz|Digga|Achievement|Freeplay'.split('|'),
+'Games':'Minecraft|Fortnite|Valorant|Counter Strike|League of Legends|Rocket League|Apex Legends|Elden Ring|Stardew Valley|Among Us|Fall Guys|Cyberpunk|Zelda|Hollow Knight|Terraria|Overwatch|Call of Duty|Grand Theft Auto|Skyrim|Diablo|Hearthstone|Rainbow Six|Dead by Daylight|Lethal Company|Baldurs Gate|Helldivers|Palworld|Satisfactory|Factorio|Mario Kart|Pokemon|Tetris|Portal|Half Life|Dark Souls|World of Warcraft|Dota|Escape from Tarkov|Marvel Rivals|Rust|Teamfight Tactics|Clash Royale|EA Sports FC|Hades|Celeste|Cuphead|Undertale|Subnautica|Valheim|RimWorld|Cities Skylines|Anno|Die Siedler|Age of Empires|Civilization|Total War|Starcraft|Left 4 Dead|Team Fortress|Battlefield|Destiny|Halo|Gears of War|Red Dead Redemption|The Witcher|Fallout|Mass Effect|Bloodborne|Sekiro|Resident Evil|Silent Hill|Phasmophobia|Animal Crossing|Splatoon|Super Mario|Kirby|Metroid|Smash Bros|Sea of Thieves|Raft|Ark|Schach|Poker|Sims|Roblox|Brawl Stars|Genshin Impact|Path of Exile|Warzone|FIFA|Need for Speed|Forza|Gran Turismo|Euro Truck Simulator|Landwirtschafts Simulator|Bomberman|Pacman|Space Invaders|Doom|Quake'.split('|'),
+'Equipment':'Mikrofon|Webcam|Capture Card|Stream Deck|Greenscreen|Ringlicht|Popfilter|Mikrofonarm|Audiointerface|Mischpult|Kopfhörer|Grafikkarte|Prozessor|Arbeitsspeicher|Gaming Stuhl|Monitor|Tastatur|Maus|Headset|XLR Kabel|Softbox|Schwanenhals|Netzwerkkabel|Elgato|Lichtpanel|Mauspad|Controller|Festplatte|Lautsprecher|Stativ|Kamera|Objektiv|Spiegelreflex|Dynamisches Mikrofon|Akustikpaneele|LED Streifen|Steckdose|Kabelkanal|Hauptplatine|Netzteil|Gehäuse|Wasserkühlung|Lüfter|Wärmeleitpaste|Grafiktablett|Stehtisch|Schreibtisch|Bürostuhl|Router|Switch|LAN Kabel|USB Hub|Docking Station|Gimbal|Smartphone|Handy Halterung'.split('|'),
+'Fachbegriffe':'Bitrate|Latenz|Encoder|Framerate|Auflösung|Overlay|Szene|Browserquelle|Streamkey|Codec|Bandbreite|Dropped Frames|Buffering|Audiomixer|Gamecapture|Chroma Key|Farbkorrektur|Rauschfilter|Noisegate|Kompressor|Limiter|Equalizer|Simulcast|Delay|Ingest Server|Multistream|Hardware Encoder|Software Encoder|Szenenwechsel|Alertbox|Chatbot|Kanalpunkte|Vorschaubild|Streamlabs|Nightbot|StreamElements|Widescreen|Vollbild|Hotkey|Makro|Plugin|Filter|Webhook|Stream Manager|Dashboard|Automod|Slowmode|Followermodus'.split('|')
+};
+const $=i=>document.getElementById(i),isL=c=>/\p{L}/u.test(c),base=c=>c.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let bag=[],cur,tiles=[],hit=new Set(),miss=new Set(),lock={},last=0,phase='play',log=[],board={};
+const KEY='hangman-alltime-'+CH;
+try{board=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(board))}catch(e){}};
+const show=t=>{t.textContent=t.dataset.c;t.classList.add('on')};
+const hidden=()=>tiles.filter(t=>!t.classList.contains('on')).length;
+const drawMiss=()=>{$('miss').innerHTML=miss.size?'Falsch: '+[...miss].map(l=>'<span class="m">'+l+'</span>').join(''):''};
+const say=h=>{log.unshift(h);log=log.slice(0,3);$('log').innerHTML=log.map(x=>'<div>'+x+'</div>').join('')};
+function drawBoard(){
+ const top=Object.entries(board).sort((a,b)=>b[1]-a[1]).slice(0,10);
+ $('rows').innerHTML=top.length?top.map(([n,p],i)=>'<div class="r"><span>'+(i+1)+'. '+esc(n)+'</span><b>'+p+'</b></div>').join(''):'<div class="r">Noch leer</div>';
+}
+// Geänderte Namen sammeln und alle 30 s gebündelt senden (beim Start einmal alle)
+const dirty=new Set(Object.keys(board));
+const add=(u,n)=>{board[u]=(board[u]||0)+n;save();drawBoard();dirty.add(u)};
+function sync(){
+ if(!SYNC_URL||!SYNC_KEY||!dirty.size)return;
+ const names=[...dirty].slice(0,200),scores={};
+ names.forEach(n=>{scores[n]=board[n];dirty.delete(n)});
+ fetch(SYNC_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify({key:SYNC_KEY,scores})})
+  .catch(()=>names.forEach(n=>dirty.add(n)));   // offline: beim nächsten Mal nochmal
+}
+setInterval(sync,SYNC_MS);
+function pick(){
+ if(!bag.length){
+  for(const c in W)W[c].forEach(w=>bag.push({cat:c,word:w}));
+  for(let i=bag.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[bag[i],bag[j]]=[bag[j],bag[i]]}
+ }
+ return bag.pop();
+}
+function newRound(){
+ cur=pick();hit=new Set();miss=new Set();phase='play';last=Date.now();
+ $('cat').textContent=cur.cat;
+ const box=$('word');box.innerHTML='';tiles=[];
+ for(const w of cur.word.toUpperCase().split(' ')){
+  const g=document.createElement('div');g.className='g';
+  for(const c of w){
+   const t=document.createElement('div');t.className='t';t.dataset.c=c;t.dataset.b=isL(c)?base(c):'';
+   g.appendChild(t);tiles.push(t);if(!isL(c))show(t);
+  }
+  box.appendChild(g);
+ }
+ drawMiss();
+ if(P.has('test'))document.title='Lösung: '+cur.word;
+}
+function finish(h){phase='done';tiles.forEach(show);say(h);setTimeout(newRound,PAUSE)}
+const norm=s=>[...s].filter(ch=>isL(ch)||/\d/.test(ch)).map(base).join('');
+function onChat(user,msg){
+ if(phase!=='play')return;
+ const m=msg.trim().match(/^!(\S+)\s*(.*)$/);if(!m)return;
+ const c=m[1],u=user.toLowerCase(),now=Date.now();
+ let letter=null,word=null;
+ if(c.length===1&&isL(c))letter=base(c);
+ else if(c.toLowerCase()==='wort'&&m[2])word=m[2];
+ else return;
+ if((lock[u]||0)>now)return;
+ const n=esc(user);
+ if(letter){
+  if(hit.has(letter)||miss.has(letter))return;
+  const k=tiles.filter(t=>t.dataset.b===letter).length;
+  if(k){
+   hit.add(letter);tiles.forEach(t=>t.dataset.b===letter&&show(t));last=now;add(user,k);
+   if(!hidden()){add(user,5);finish('<b>'+n+'</b> löst es mit '+letter+' (+'+(k+5)+')')}
+   else say('<b>'+n+'</b> '+letter+' ✓ +'+k);
+  }else{miss.add(letter);lock[u]=now+CD;drawMiss();say('<b>'+n+'</b> '+letter+' ✗')}
+ }else{
+  if(norm(word)===norm(cur.word)){const b=5+2*hidden();add(user,b);finish('<b>'+n+'</b> löst es (+'+b+')')}
+  else{lock[u]=now+CD;say('<b>'+n+'</b> falsches Wort ✗')}
+ }
+}
+// Kommt 60 s lang niemand weiter, wird ein Buchstabe aufgedeckt
+setInterval(()=>{
+ if(phase!=='play'||Date.now()-last<STALL)return;
+ const h=tiles.filter(t=>!t.classList.contains('on'));if(!h.length)return;
+ const L=h[Math.random()*h.length|0].dataset.b;
+ hit.add(L);tiles.forEach(t=>t.dataset.b===L&&show(t));last=Date.now();
+ if(!hidden())finish('Niemand hat es gelöst: '+esc(cur.word));else say('Tipp: '+L+' wurde aufgedeckt');
+},1000);
+// Twitch-Chat lesen (anonym, ohne Login)
+function connect(){
+ const ws=new WebSocket('wss://irc-ws.chat.twitch.tv:443');
+ ws.onopen=()=>{ws.send('CAP REQ :twitch.tv/tags');ws.send('PASS SCHMOOPIIE');ws.send('NICK justinfan'+(10000+Math.random()*80000|0));ws.send('JOIN #'+CH)};
+ ws.onmessage=e=>e.data.split('\r\n').forEach(l=>{
+  if(l.startsWith('PING')){ws.send('PONG :tmi.twitch.tv');return}
+  const m=l.match(/^(?:@(\S+) )?:(\w+)!\S+ PRIVMSG #\S+ :(.*)$/);
+  if(m){const d=(m[1]||'').match(/display-name=([^;]*)/);onChat((d&&d[1])||m[2],m[3])}
+ });
+ ws.onclose=()=>setTimeout(connect,4000);
+ ws.onerror=()=>ws.close();
+}
+if(P.has('test')){
+ const b=document.createElement('div');b.id='test';
+ b.innerHTML='<input placeholder="Name: !e   oder   Name: !wort HAUS   (Enter)">';
+ document.body.appendChild(b);
+ b.firstChild.onkeydown=e=>{if(e.key==='Enter'){const m=e.target.value.match(/^(\w+):\s*(.*)$/);if(m)onChat(m[1],m[2]);e.target.value=''}};
+}
+drawBoard();newRound();connect();
+</script></body></html>

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="robots" content="noindex">
+<title>Die Herde – OBS-Overlay</title>
+<!--
+  OBS-Browserquelle: kündigt Aufstiege in der Herde an – nur von Zuschauern,
+  die per „!herde“ mit Namen sichtbar sein wollen. Lurker erscheinen nie.
+  Hintergrund ist durchsichtig, zwischen den Meldungen ist nichts zu sehen.
+  Adresse:  …/overlay.html
+  Optionen: ?demo=1        Vorschau mit Beispiel-Meldungen
+            ?pos=bottom    Meldungen unten statt oben
+  Empfohlene Größe in OBS: 1920 × 300.
+-->
+<link rel="stylesheet" href="overlay.css?v=18">
+<script src="config.js?v=18"></script>
+<script src="herd-core.js?v=18"></script>
+<script src="overlay.js?v=18" defer></script>
+</head>
+<body>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+</body>
+</html>

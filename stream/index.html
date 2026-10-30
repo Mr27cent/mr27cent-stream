@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mr27cent – Stream</title>
+<meta name="description" content="Stream-Seite von Mr27cent: Live-Dashboard, Die Herde, Highscores, Clips und Chat-Spiele.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" href="img/icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#d9661f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mr27cent">
+<!-- Link-Vorschau (Discord, WhatsApp, X …). Bei eigener Domain hier die Adresse ändern. -->
+<meta property="og:url" content="https://mr27cent.pages.dev/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Mr27cent">
+<meta property="og:title" content="Mr27cent – Willkommen in der Savanne!">
+<meta property="og:description" content="Live-Dashboard, Die Herde, Highscores, Clips und Chat-Spiele rund um den Twitch-Stream von Mr27cent.">
+<meta property="og:image" content="https://mr27cent.pages.dev/img/og-preview.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="de_DE">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="style.css?v=18">
+<link rel="stylesheet" href="savanna.css?v=18">
+<!-- Theme vor dem ersten Rendern setzen, damit nichts flackert -->
+<script src="theme.js?v=18"></script>
+<script src="config.js?v=18"></script>
+<script src="herd-core.js?v=18"></script>
+<script src="app.js?v=18" defer></script>
+<script src="extras.js?v=18" defer></script>
+<script src="savanna.js?v=18" defer></script>
+<script src="raetsel.js?v=18" defer></script>
+<script src="partner.js?v=18" defer></script>
+</head>
+<body>
+
+<!-- ── Savannen-Landschaft (Hintergrund) ─────────────────────────────── -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="sym-acacia" viewBox="0 0 120 100">
+      <path d="M58 100 C58 86 57 74 55 64 C49 56 42 50 34 44 M55 64 C61 56 70 50 82 44 M56 70 C52 62 52 54 54 46"
+            fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+      <ellipse cx="36" cy="42" rx="30" ry="7" fill="currentColor"/>
+      <ellipse cx="80" cy="40" rx="32" ry="7" fill="currentColor"/>
+      <ellipse cx="58" cy="34" rx="34" ry="8" fill="currentColor"/>
+      <ellipse cx="56" cy="44" rx="10" ry="4" fill="currentColor"/>
+    </symbol>
+    <symbol id="sym-gazelle" viewBox="0 0 100 90">
+      <ellipse cx="44" cy="46" rx="25" ry="10" fill="currentColor"/>
+      <path d="M57 44 L66 40 L76 21 L69 18 Z" fill="currentColor"/>
+      <ellipse cx="77" cy="23" rx="10" ry="4.2" transform="rotate(28 77 23)" fill="currentColor"/>
+      <ellipse cx="68" cy="17" rx="4" ry="1.8" transform="rotate(-35 68 17)" fill="currentColor"/>
+      <path d="M71 17 C69 9 65 4 60 1 M74 17 C73 9 70 5 66 2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M27 52 L24 70 L26 87 M34 54 L35 87 M58 53 L61 70 L59 87 M64 50 L68 87"
+            fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M20 42 L15 50" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="landscape" id="landscape" aria-hidden="true">
+  <div class="stars"></div>
+  <div class="sun"></div>
+  <svg class="hills" viewBox="0 0 1440 320" preserveAspectRatio="none">
+    <path class="hill-far"  d="M0 210 C220 160 380 190 560 170 C760 148 900 190 1100 168 C1260 150 1360 170 1440 160 L1440 320 L0 320 Z"/>
+    <path class="hill-mid"  d="M0 250 C180 225 360 245 540 232 C760 216 980 252 1200 236 C1320 228 1400 236 1440 232 L1440 320 L0 320 Z"/>
+    <path class="hill-near" d="M0 288 C240 270 520 292 800 280 C1040 270 1260 290 1440 280 L1440 320 L0 320 Z"/>
+  </svg>
+  <svg class="silhouette tree t1"><use href="#sym-acacia"/></svg>
+  <svg class="silhouette tree t2"><use href="#sym-acacia"/></svg>
+  <svg class="silhouette tree t3"><use href="#sym-acacia"/></svg>
+  <svg class="silhouette gazelle g1"><use href="#sym-gazelle"/></svg>
+  <svg class="silhouette gazelle g2"><use href="#sym-gazelle"/></svg>
+  <div class="live-herd" id="live-herd"></div>
+</div>
+
+<!-- ── Kopfzeile ─────────────────────────────────────────────────────── -->
+<header class="topbar">
+  <button class="nav-burger" id="nav-burger" type="button" aria-label="Menü ein-/ausklappen" aria-controls="sidebar" aria-expanded="false">☰</button>
+  <a class="brand" href="#dashboard">
+    <span class="brand-avatar" id="brand-avatar"><svg class="brand-gazelle"><use href="#sym-gazelle"/></svg></span>
+    <span class="brand-name" id="brand-name">Mr27cent</span>
+  </a>
+  <div class="topbar-actions">
+    <span class="live-pill" id="live-pill" hidden>● LIVE</span>
+    <button class="theme-toggle" id="sound-toggle" type="button" aria-pressed="false" aria-label="Savannen-Geräusche an/aus" title="Savannen-Geräusche">🔇</button>
+    <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Tag/Nacht wechseln">
+      <span class="theme-icon-day">☀️</span><span class="theme-icon-night">🌙</span>
+    </button>
+  </div>
+</header>
+
+<div class="layout">
+
+<!-- ── Seitenmenü (Reiter) ───────────────────────────────────────────── -->
+<aside class="sidebar" id="sidebar">
+  <nav class="tabs" id="tabs" aria-label="Bereiche">
+    <a href="#dashboard"  data-tab="dashboard"><span class="tab-icon">📊</span><span class="tab-label">Dashboard</span><span class="tab-live" id="tab-live" hidden></span></a>
+    <a href="#herd"       data-tab="herd"><span class="tab-icon">🦌</span><span class="tab-label">Die Herde</span></a>
+    <a href="#play"       data-tab="play"><span class="tab-icon">🎯</span><span class="tab-label">Mitmachen</span></a>
+    <a href="#clips"      data-tab="clips"><span class="tab-icon">🎬</span><span class="tab-label">Clips</span></a>
+    <a href="#schedule"   data-tab="schedule"><span class="tab-icon">📅</span><span class="tab-label">Streamplan</span></a>
+    <a href="#about"      data-tab="about"><span class="tab-icon">🌾</span><span class="tab-label">Über mich</span></a>
+    <a href="#community"  data-tab="community"><span class="tab-icon">🐾</span><span class="tab-label">Community</span></a>
+    <a href="#partner"    data-tab="partner" class="tab-partner"><span class="tab-icon">🤝</span><span class="tab-label">Für Partner</span></a>
+  </nav>
+  <button class="install-btn" id="install-btn" type="button" hidden>
+    <span class="tab-icon">📲</span><span class="tab-label">Als App installieren</span>
+  </button>
+</aside>
+<div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+<main id="top" class="content">
+
+  <div class="demo-banner" id="demo-banner" hidden>
+    🧪 Demo-Modus: Es werden Beispieldaten angezeigt, bis die Twitch-Schnittstelle verbunden ist.
+  </div>
+
+
+
+  <!-- ── Dashboard ──────────────────────────────────────────────────── -->
+  <section id="dashboard" class="section tab-panel">
+  <!-- ── Hero: Live oder Offline ────────────────────────────────────── -->
+<div class="hero card" id="hero">
+    <div class="hero-text">
+      <div class="hero-status" id="hero-status">Lädt …</div>
+      <h2 class="hero-title" id="hero-title">Mr27cent</h2>
+      <p class="hero-sub" id="hero-sub"></p>
+      <div class="hero-buttons">
+        <a class="btn btn-primary" id="hero-twitch-btn" href="https://twitch.tv/mr27cent" target="_blank" rel="noopener">Auf Twitch ansehen</a>
+        <button class="btn btn-ghost" id="hero-embed-btn" type="button" hidden>▶ Stream &amp; Chat hier laden</button>
+      </div>
+    </div>
+    <div class="hero-embed" id="hero-embed" hidden></div>
+</div>
+
+    <h1 class="section-title"><span>📊</span> Live-Dashboard</h1>
+    <div class="stat-grid" id="stat-grid"></div>
+
+    <div class="card goal-card">
+      <div class="goal-head">
+        <span class="goal-label" id="goal-label">Follower-Ziel</span>
+        <span class="goal-value" id="goal-value">–</span>
+      </div>
+      <div class="goal-track" role="progressbar" aria-label="Fortschritt zum Follower-Ziel" aria-valuemin="0" aria-valuemax="100" id="goal-track">
+        <div class="goal-fill" id="goal-fill"></div>
+        <svg class="goal-walker" id="goal-walker"><use href="#sym-gazelle"/></svg>
+        <svg class="goal-tree"><use href="#sym-acacia"/></svg>
+      </div>
+      <p class="goal-note" id="goal-note"></p>
+    </div>
+    <div class="subsection" id="games">
+      <h2 class="sub-title big"><span>🎮</span> Gespielte Spiele</h2>
+      <div class="game-grid" id="game-grid"></div>
+      </div>
+    <div class="subsection" id="wrapped">
+      <h2 class="sub-title big"><span>🎁</span> <span id="wrapped-title">Jahresrückblick</span></h2>
+      <div class="wrapped-grid" id="wrapped-grid"></div>
+      <div class="card wrapped-share">
+        <div>
+          <h2>📲 Zum Teilen</h2>
+          <p>Erstellt ein Bild im Story-Format (1080 × 1920) für Instagram und TikTok.</p>
+        </div>
+        <button class="btn btn-primary" id="wrapped-btn" type="button">Bild erstellen</button>
+      </div>
+      <div class="wrapped-preview" id="wrapped-preview"></div>
+      </div>
+
+  </section>
+
+  <!-- ── Die Herde (Zuschauzeit) ───────────────────────────────────── -->
+  <section id="herd" class="section tab-panel">
+    <h1 class="section-title"><span>🦌</span> Die Herde <small class="season" id="herd-season"></small></h1>
+
+    <div class="card scene-card">
+      <div class="scene-head">
+        <h2 id="scene-title">Die Savanne</h2>
+        <span class="scene-sub" id="scene-sub"></span>
+      </div>
+      <div class="scene" id="scene">
+        <div class="scene-gazelles" id="scene-gazelles"></div>
+        <p class="scene-empty" id="scene-empty" hidden></p>
+      </div>
+      <p class="scene-hint">Hier laufen alle, die im Chat !herde geschrieben haben. Tippe auf eine Gazelle, um zu sehen, wer es ist – suchst du unten deinen Namen, leuchtet deine Gazelle auf.</p>
+    </div>
+    <div class="card herd-intro">
+      <p>Jeder Zuschauer startet als <b>neugeborenes Kitz</b> und wächst mit jeder Stunde, die man beim Stream dabei ist.
+        Wer nur zuschaut, grast <b>anonym</b> mit – wer mit Namen erscheinen möchte, schreibt <b>!herde</b> in den Chat
+        (<b>!herde aus</b> macht dich wieder anonym).
+        In <b><span id="stage-count">27</span> Stufen</b> geht es bis zur Leitgazelle – mit <b id="herd-max-text">1.000 Stunden</b> ist sie ausgewachsen. Am 1. Januar beginnt eine neue Saison.</p>
+      <div class="stage-row" id="stage-row" tabindex="0" role="region" aria-label="Alle Stufen der Herde (seitlich scrollen)"></div>
+    </div>
+
+    <div class="card herd-find">
+      <label for="herd-search"><b>Finde deine Gazelle</b></label>
+      <div class="herd-search-row">
+        <input id="herd-search" type="search" list="herd-names" placeholder="Twitch-Name eingeben" autocomplete="off">
+        <datalist id="herd-names"></datalist>
+      </div>
+      <div id="herd-me"></div>
+    </div>
+
+    <h2 class="sub-title">🏆 Top 100 der Saison</h2>
+    <div class="herd-grid" id="herd-grid"></div>
+    <ol class="card herd-list" id="herd-list" hidden></ol>
+    <p class="herd-total" id="herd-total"></p>
+
+    <h2 class="sub-title">🏛️ Ruhmeshalle</h2>
+    <div class="card hall" id="hall"></div>
+  </section>
+
+
+  <!-- ── Mitmachen: Wort des Tages & Abstimmung ───────────────────── -->
+  <section id="play" class="section tab-panel">
+    <h1 class="section-title"><span>🎯</span> Mitmachen</h1>
+    <p class="play-intro">Jeden Tag drei neue Rätsel, für alle dieselben. Halte deine Serie am Leben! 🔥</p>
+    <div class="play-grid">
+      <div class="play-main">
+        <div class="game-switch" id="game-switch" role="tablist" aria-label="Rätsel auswählen">
+          <button type="button" role="tab" data-game="hangman" aria-controls="game-hangman"><span aria-hidden="true">🔤</span> Wort des Tages <span class="gs-done" hidden aria-label="heute gespielt">✓</span></button>
+          <button type="button" role="tab" data-game="wordle" aria-controls="game-wordle"><span aria-hidden="true">🟩</span> Wordle <span class="gs-done" hidden aria-label="heute gespielt">✓</span></button>
+          <button type="button" role="tab" data-game="emotle" aria-controls="game-emotle"><span aria-hidden="true">😺</span> Emotle <span class="gs-done" hidden aria-label="heute gespielt">✓</span></button>
+        </div>
+
+        <!-- Wort des Tages (Hangman) -->
+        <div class="card wotd game-panel" id="game-hangman" data-game-panel="hangman" role="tabpanel">
+          <div class="wotd-head">
+            <h2>🔤 Wort des Tages <small id="hangman-no"></small></h2>
+            <span class="wotd-streak" id="hangman-streak"></span>
+          </div>
+          <p class="wotd-hint">Rette die Gazelle! Jeder falsche Buchstabe lässt den Löwen näher kommen.</p>
+          <div class="chase" id="chase">
+            <span class="chase-lion" id="chase-lion">🦁</span>
+            <svg class="chase-gazelle" id="chase-gazelle"><use href="#sym-gazelle"/></svg>
+          </div>
+          <div class="wotd-word" id="wotd-word" aria-live="polite"></div>
+          <div class="wotd-msg" id="wotd-msg" aria-live="polite"></div>
+          <div class="keyboard" id="keyboard"></div>
+          <div class="wotd-actions">
+            <button class="btn btn-ghost" id="hangman-share" type="button" hidden>📋 Ergebnis kopieren</button>
+          </div>
+          <p class="wotd-stats" id="hangman-stats"></p>
+        </div>
+
+        <!-- Wordle -->
+        <div class="card game-panel" id="game-wordle" data-game-panel="wordle" role="tabpanel" hidden>
+          <div class="wotd-head">
+            <h2>🟩 Wordle <small id="wordle-no"></small></h2>
+            <span class="wotd-streak" id="wordle-streak"></span>
+          </div>
+          <p class="wotd-hint">Finde das Wort mit 5 Buchstaben in 6 Versuchen.
+            <span class="legend"><i class="lg c"></i> richtig <i class="lg p"></i> andere Stelle <i class="lg a"></i> nicht drin</span></p>
+          <div class="wordle-grid" id="wordle-grid" role="grid" aria-label="Wordle-Spielfeld"></div>
+          <div class="wotd-msg" id="wordle-msg" aria-live="polite"></div>
+          <div class="wordle-kb" id="wordle-kb"></div>
+          <div class="wotd-actions">
+            <button class="btn btn-ghost" id="wordle-share" type="button" hidden>📋 Ergebnis kopieren</button>
+          </div>
+          <div class="wordle-dist" id="wordle-dist"></div>
+          <p class="wotd-stats" id="wordle-stats"></p>
+        </div>
+
+        <!-- Emotle -->
+        <div class="card game-panel" id="game-emotle" data-game-panel="emotle" role="tabpanel" hidden>
+          <div class="wotd-head">
+            <h2>😺 Emotle <small id="emotle-no"></small></h2>
+            <span class="wotd-streak" id="emotle-streak"></span>
+          </div>
+          <p class="wotd-hint">Welches Kanal-Emote versteckt sich hier? Mit jedem falschen Tipp wird das Bild schärfer.</p>
+          <p class="empty" id="emotle-empty">Lädt …</p>
+          <div id="emotle-body" hidden>
+            <div class="emotle-stage">
+              <canvas id="emotle-canvas" width="224" height="224" role="img" aria-label="Verpixeltes Emote"></canvas>
+              <div class="emotle-tries" id="emotle-tries" aria-hidden="true"></div>
+            </div>
+            <div class="wotd-msg" id="emotle-msg" aria-live="polite"></div>
+            <div class="emotle-options" id="emotle-options"></div>
+            <div class="wotd-actions">
+              <button class="btn btn-ghost" id="emotle-share" type="button" hidden>📋 Ergebnis kopieren</button>
+            </div>
+          </div>
+          <p class="wotd-stats" id="emotle-stats"></p>
+        </div>
+      </div>
+
+      <div class="play-side">
+        <div class="card streaks" id="streaks">
+          <h2>🔥 Längste Serien</h2>
+          <p class="streak-sub" id="streak-game"></p>
+          <ol class="streak-list" id="streak-list"></ol>
+          <div class="streak-me" id="streak-me"></div>
+        </div>
+
+        <div class="card poll" id="poll">
+          <h2>🗳️ Abstimmung</h2>
+          <div id="poll-body"></div>
+        </div>
+      </div>
+    </div>
+    <div class="subsection" id="highscores">
+      <h2 class="sub-title big"><span>🏆</span> Highscores</h2>
+      <div class="two-col" id="highscore-grid"></div>
+      </div>
+
+  </section>
+
+  <!-- ── Clips ──────────────────────────────────────────────────────── -->
+  <section id="clips" class="section tab-panel">
+    <h1 class="section-title"><span>🎬</span> <span id="clip-title-text">Clip des Jahres</span></h1>
+    <div class="card clip-hero" id="clip-hero"></div>
+    <h2 class="sub-title">Weitere Top-Clips</h2>
+    <div class="clip-grid" id="clip-grid"></div>
+
+    <h2 class="sub-title">🗳️ Clip des Monats</h2>
+    <div class="card cotm" id="cotm"></div>
+  </section>
+
+  <!-- ── Streamplan ─────────────────────────────────────────────────── -->
+  <section id="schedule" class="section tab-panel">
+    <h1 class="section-title"><span>📅</span> Streamplan</h1>
+    <div class="card" id="schedule-box"></div>
+  </section>
+
+
+
+
+
+  <!-- ── Über mich / Setup / FAQ / Regeln ───────────────────────────── -->
+  <section id="about" class="section tab-panel">
+    <h1 class="section-title"><span>🌾</span> Über mich</h1>
+    <div class="about-grid">
+      <div class="card about-card">
+        <h2>Hallo!</h2>
+        <div id="about-text"></div>
+      </div>
+      <div class="card">
+        <h2>🖥️ Setup</h2>
+        <dl class="setup-list" id="setup-list"></dl>
+      </div>
+      <div class="card">
+        <h2>❓ FAQ</h2>
+        <div id="faq-list"></div>
+      </div>
+      <div class="card">
+        <h2>📜 Regeln im Chat</h2>
+        <ol class="rules-list" id="rules-list"></ol>
+      </div>
+    </div>
+    <div class="subsection" id="milestones">
+      <h2 class="sub-title big"><span>🏁</span> Meilensteine</h2>
+      <div class="card"><ol class="timeline" id="timeline"></ol></div>
+      </div>
+
+  </section>
+
+  <!-- ── Community ──────────────────────────────────────────────────── -->
+  <section id="community" class="section tab-panel">
+    <h1 class="section-title"><span>🐾</span> Community</h1>
+    <div class="community-grid">
+      <div class="card">
+        <h2>Socials</h2>
+        <div class="social-list" id="social-list"></div>
+      </div>
+      <div class="card discord-card" id="discord-card">
+        <h2>Discord</h2>
+        <div id="discord-body"></div>
+      </div>
+      <div class="card tip-card" id="tip-card">
+        <h2>🧡 Unterstützen</h2>
+        <p id="tip-text"></p>
+        <a class="btn btn-primary" id="tip-btn" href="#" target="_blank" rel="noopener">Tipp geben</a>
+      </div>
+      <div class="card">
+        <h2>🤝 Für Marken &amp; Partner</h2>
+        <p>Du möchtest mit dem Kanal zusammenarbeiten? Hier gibt's alle Infos auf einen Blick.</p>
+        <a class="btn btn-ghost" href="#partner">Media Kit ansehen</a>
+      </div>
+    </div>
+    <div class="subsection" id="emotes">
+      <h2 class="sub-title big"><span>😺</span> Kanal-Emotes</h2>
+      <div class="card emote-grid" id="emote-grid"></div>
+      </div>
+
+  </section>
+
+  <!-- ── Für Marken & Partner (Media Kit, nicht im Menü – Link: #partner) ── -->
+  <section id="partner" class="section tab-panel">
+    <h1 class="section-title"><span>🤝</span> Für Marken &amp; Partner</h1>
+    <div class="card partner-hero">
+      <div class="partner-hero-text">
+        <p class="partner-kicker">Media Kit · Mr27cent</p>
+        <h2 id="partner-headline"></h2>
+        <p id="partner-intro"></p>
+        <div class="hero-buttons">
+          <button class="btn btn-primary" type="button" id="partner-to-form">📬 Anfrage schicken</button>
+          <a class="btn btn-ghost" id="partner-tracker" href="https://twitchtracker.com/mr27cent" target="_blank" rel="noopener">📈 Zahlen auf TwitchTracker</a>
+        </div>
+      </div>
+      <svg class="partner-gazelle" aria-hidden="true"><use href="#sym-gazelle"/></svg>
+    </div>
+
+    <h2 class="sub-title">In Zahlen</h2>
+    <div class="stat-grid" id="partner-stats"></div>
+
+    <h2 class="sub-title">Was den Kanal ausmacht</h2>
+    <div class="partner-grid" id="partner-highlights"></div>
+
+    <h2 class="sub-title">Möglichkeiten der Zusammenarbeit</h2>
+    <div class="card"><ul class="partner-offers" id="partner-offers"></ul></div>
+
+    <div class="card partner-contact" id="partner-contact">
+      <div class="partner-contact-info">
+        <h2>📬 Lass uns reden</h2>
+        <p id="partner-contact-text"></p>
+        <p class="partner-mailline">Oder direkt per Mail: <b id="partner-mail-text"></b>
+          <button type="button" class="link-btn" id="partner-copy">Adresse kopieren</button></p>
+        <p class="partner-socials" id="partner-socials"></p>
+      </div>
+      <form class="partner-form" id="partner-form" novalidate>
+        <div class="pf-row">
+          <label>Name *<input name="name" type="text" maxlength="80" autocomplete="name" required></label>
+          <label>Firma / Marke<input name="company" type="text" maxlength="100" autocomplete="organization"></label>
+        </div>
+        <label>E-Mail *<input name="email" type="email" maxlength="120" autocomplete="email" required></label>
+        <label>Deine Idee *<textarea name="message" rows="5" maxlength="2000" required placeholder="Worum geht es? Zeitraum, Produkt, Budget – alles, was hilft."></textarea></label>
+        <label class="pf-trap" aria-hidden="true">Webseite<input name="website" type="text" tabindex="-1" autocomplete="off"></label>
+        <button class="btn btn-primary" type="submit">Anfrage senden</button>
+        <p class="pf-note">Deine Angaben werden über Google an Mr27cent übermittelt und nur zur Beantwortung genutzt – mehr in der <a href="#" data-open="privacy-modal">Datenschutzerklärung</a>.</p>
+        <p class="pf-status" id="partner-status" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </section>
+
+</main>
+</div>
+
+<footer class="site-footer">
+  <span id="footer-updated"></span>
+  <span>
+    <a href="#partner">Für Marken &amp; Partner</a> ·
+    <a href="#" data-open="privacy-modal">Datenschutz</a> ·
+    <a href="#" data-open="impressum-modal">Impressum</a> ·
+    <a href="#" id="consent-reset">Einwilligung ändern</a>
+  </span>
+</footer>
+
+<!-- ── Einwilligung ──────────────────────────────────────────────────── -->
+<div class="consent" id="consent" hidden>
+  <div class="consent-box card">
+    <h3>🌾 Kurz bevor's losgeht</h3>
+    <p>Für Live-Status, Clips und Emotes lädt diese Seite Inhalte von <b>Twitch</b> und <b>Google</b>. Dabei wird deine IP-Adresse an diese Anbieter übertragen. Es werden keine Analyse- oder Werbe-Cookies gesetzt.</p>
+    <div class="consent-buttons">
+      <button class="btn btn-primary" id="consent-accept" type="button">Inhalte laden</button>
+      <button class="btn btn-ghost" id="consent-reject" type="button">Nur Grundseite</button>
+    </div>
+    <a href="#" class="consent-more" data-open="privacy-modal">Datenschutzerklärung</a>
+  </div>
+</div>
+
+<!-- ── App installieren (iPhone/iPad) ─────────────────────────────────── -->
+<div class="modal" id="install-modal" hidden>
+  <div class="modal-box card" role="dialog" aria-modal="true" aria-label="Als App installieren">
+    <button class="modal-close" type="button" data-close>✕</button>
+    <h2>📲 Als App installieren</h2>
+    <ol>
+      <li>Unten in Safari auf <b>Teilen</b> tippen (Quadrat mit Pfeil nach oben).</li>
+      <li><b>„Zum Home-Bildschirm“</b> wählen.</li>
+      <li>Auf <b>Hinzufügen</b> tippen – fertig, die Savanne ist jetzt eine App. 🦌</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ── Impressum ─────────────────────────────────────────────────────── -->
+<div class="modal" id="impressum-modal" hidden>
+  <div class="modal-box card" role="dialog" aria-modal="true" aria-label="Impressum">
+    <button class="modal-close" type="button" data-close>✕</button>
+    <h2>Impressum</h2>
+    <h3>Angaben gemäß § 5 DDG</h3>
+    <!-- TODO: eigene Angaben eintragen (Name, ladungsfähige Anschrift, E-Mail) -->
+    <p>[Vor- und Nachname]<br>[Straße Hausnummer]<br>[PLZ Ort]</p>
+    <h3>Kontakt</h3>
+    <p>E-Mail: [deine E-Mail-Adresse]</p>
+    <h3>Hinweis</h3>
+    <p>Diese Website ist die offizielle Seite des Twitch-Kanals Mr27cent. Es besteht keine Verbindung zu Twitch Interactive, Inc.</p>
+  </div>
+</div>
+
+<!-- ── Datenschutz ───────────────────────────────────────────────────── -->
+<div class="modal" id="privacy-modal" hidden>
+  <div class="modal-box card" role="dialog" aria-modal="true" aria-label="Datenschutzerklärung">
+    <button class="modal-close" type="button" data-close>✕</button>
+    <h2>Datenschutzerklärung</h2>
+
+    <h3>1. Verantwortliche Person</h3>
+    <p>Siehe Impressum. Diese Seite gehört zum Twitch-Kanal Mr27cent, der gewerblich betrieben wird.</p>
+
+    <h3>2. Hosting</h3>
+    <p>Die Seite wird über Cloudflare Pages (Cloudflare, Inc., USA) ausgeliefert. Cloudflare verarbeitet dabei technische Zugriffsdaten (z. B. IP-Adresse, Zeitpunkt, Browser), um die Seite auszuliefern und vor Angriffen zu schützen. Die Übermittlung in die USA stützt sich auf das EU-US Data Privacy Framework bzw. EU-Standardvertragsklauseln. <a href="https://www.cloudflare.com/de-de/privacypolicy/" target="_blank" rel="noopener noreferrer">Cloudflare Datenschutzerklärung</a>.</p>
+    <p><b>Rechtsgrundlage:</b> Art. 6 Abs. 1 lit. f DSGVO (sichere und stabile Bereitstellung der Seite).</p>
+    <p><b>Besucherstatistik:</b> Wir nutzen Cloudflare Web Analytics, um zu sehen, wie viele Besucher die Seite hat und welche Bereiche genutzt werden. Dabei werden <b>keine Cookies</b> gesetzt und keine Profile über einzelne Besucher gebildet; erfasst werden nur zusammengefasste Werte wie aufgerufene Seite, Herkunftsseite, Land, Browser und Ladezeit. Die Daten verarbeitet Cloudflare (siehe oben). <b>Rechtsgrundlage:</b> Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse, das Angebot zu verbessern).</p>
+
+    <h3>3. Externe Inhalte (nur nach Einwilligung)</h3>
+    <p>Erst wenn du im Hinweisfenster „Inhalte laden“ wählst, ruft die Seite folgende Dienste auf. Dabei wird deine IP-Adresse im Rahmen der normalen Verbindung an den jeweiligen Anbieter übertragen:</p>
+    <ul>
+      <li><b>Google Apps Script</b> (Google LLC, USA): liefert Live-Status, Statistiken, Clips und Highscores als Datenpaket.</li>
+      <li><b>Twitch</b> (Twitch Interactive, Inc., USA): Profilbild, Clip-Vorschaubilder, Emotes und Spiele-Cover.</li>
+    </ul>
+    <p>Der Twitch-Player, der Chat und Clip-Videos werden zusätzlich erst geladen, wenn du sie einzeln anklickst. Twitch kann dabei eigene Cookies setzen.</p>
+    <p><b>Rechtsgrundlage:</b> Art. 6 Abs. 1 lit. a DSGVO (Einwilligung). Du kannst sie jederzeit über „Einwilligung ändern“ unten auf der Seite widerrufen.</p>
+
+    <h3>4. „Die Herde“ (Zuschauzeit)</h3>
+    <p>Während eines Livestreams wird alle 5 Minuten abgefragt, welche angemeldeten Twitch-Nutzer im Chat sind. Gespeichert werden dein Twitch-Name, deine gesammelte Zuschauzeit im laufenden Jahr und das Datum, an dem du zuletzt dabei warst. Daraus wächst deine Gazelle auf dieser Seite. <b>Standardmäßig bleibst du dabei anonym</b>: Öffentlich erscheint nur eine namenlose Gazelle mit ihrer Stufe, im Stream erscheinst du gar nicht. Erst wenn du selbst <code>!herde</code> in den Chat schreibst, werden dein Twitch-Name und deine Zuschauzeit in Rangliste und Ruhmeshalle angezeigt, deine Aufstiege im Stream eingeblendet und beim Chat-Befehl <code>!gazelle</code> genannt; mit <code>!herde aus</code> nimmst du das jederzeit zurück. Die Daten liegen in einer nicht öffentlichen Google-Tabelle der verantwortlichen Person. Nach Ende einer Saison (31. Dezember) werden die Daten aller Zuschauer gelöscht – nur die drei größten Gazellen bleiben mit Name und Stunden in der Ruhmeshalle.</p>
+    <p><b>Rechtsgrundlage:</b> Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an einer Community-Funktion für den Stream). <b>Widerspruch:</b> Wenn du nicht in der Herde erscheinen möchtest, schreib eine kurze Nachricht (Kontakt siehe Impressum) – dann wirst du entfernt und nicht mehr erfasst.</p>
+
+    <h3>5. Lokale Speicherung</h3>
+    <p>Im <code>localStorage</code> deines Browsers werden deine Einwilligung, die gewählte Ansicht (Tag/Nacht, Menü), deine Spielstände und Statistiken bei den Rätseln und deine abgegebenen Stimmen gespeichert. Außerdem legt die Seite ihre eigenen Dateien (Texte, Bilder, Schriften) im Browser-Zwischenspeicher ab, damit sie schneller lädt und als App funktioniert. Diese Daten verlassen deinen Browser nicht – mit einer Ausnahme: Wenn du abstimmst, wird eine zufällige Geräte-Kennung (keine Rückschlüsse auf deine Person) zusammen mit deiner Stimme an Google Apps Script übertragen, damit jedes Gerät nur einmal abstimmen kann.</p>
+
+    <h3>6. Rätsel-Bestenliste (freiwillig)</h3>
+    <p>Die Rätsel unter „Mitmachen“ laufen in deinem Browser. Nur wenn du dich selbst mit einem Namen in die Bestenliste einträgst, sendet die Seite nach jedem gespielten Rätsel diesen Namen, die zufällige Geräte-Kennung, die Rätsel-Nummer und deine Tipps an Google Apps Script. Gespeichert werden in der nicht öffentlichen Google-Tabelle der verantwortlichen Person dein Name, die Geräte-Kennung, deine aktuelle und deine längste Serie pro Rätsel, der letzte Spieltag und dessen Ergebnis. Öffentlich angezeigt werden nur Name und Serien. Über „Aus der Liste austragen“ werden alle diese Daten sofort gelöscht.</p>
+    <p><b>Rechtsgrundlage:</b> Art. 6 Abs. 1 lit. a DSGVO (Einwilligung durch das Eintragen).</p>
+
+    <h3>7. Kontaktformular (Für Marken &amp; Partner)</h3>
+    <p>Wenn du das Kontaktformular abschickst, werden Name, Firma (optional), E-Mail-Adresse, Nachricht und eine zufällige Geräte-Kennung an Google Apps Script übertragen. Die Anfrage wird in der nicht öffentlichen Google-Tabelle der verantwortlichen Person gespeichert und per E-Mail (Gmail, Google) zugestellt. Die Daten werden nur zur Bearbeitung deiner Anfrage genutzt und gelöscht, sobald sie nicht mehr benötigt werden. <b>Rechtsgrundlage:</b> Art. 6 Abs. 1 lit. b DSGVO (Anbahnung einer Zusammenarbeit) bzw. lit. f (Beantwortung von Anfragen).</p>
+
+    <h3>8. Deine Rechte</h3>
+    <p>Du hast das Recht auf Auskunft, Berichtigung, Löschung und Einschränkung der Verarbeitung sowie ein Beschwerderecht bei der zuständigen Datenschutzaufsichtsbehörde.</p>
+  </div>
+</div>
+
+</body>
+</html>
