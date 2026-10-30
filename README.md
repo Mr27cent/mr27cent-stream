@@ -3,6 +3,12 @@
 > **Veröffentlichen:** Dieses Repo ist mit Cloudflare Pages verbunden (Projekt `mr27cent`,
 > Ausgabeordner `stream`). Jeder Push auf `main` geht automatisch live.
 > `apps-script/` und `hangman/` werden nicht veröffentlicht.
+>
+> | Ordner | Inhalt |
+> |---|---|
+> | `stream/` | die Webseite (wird veröffentlicht) |
+> | `apps-script/` | `Code.gs` fürs Google Apps Script |
+> | `hangman/` | Hangman-Overlay für OBS (Schlüssel nur in deiner lokalen Kopie) |
 
 Eigene Stream-Webseite im Savannen-Look mit Live-Dashboard, Clip des Jahres,
 Highscores (Hangman & Idle-Game), Streamplan, Spiele-Historie, Emotes,
