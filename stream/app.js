@@ -107,7 +107,8 @@
   var mobileMq = window.matchMedia("(max-width: 860px)");
 
   // Frühere Reiter, die jetzt Abschnitte in anderen Reitern sind (alte Links funktionieren weiter)
-  var MOVED = { highscores: "play", games: "dashboard", wrapped: "dashboard", milestones: "about", emotes: "community" };
+  var MOVED = { highscores: "play", games: "dashboard", wrapped: "dashboard", schedule: "dashboard",
+    milestones: "about", community: "about", emotes: "about" };
 
   function showTab() {
     var id = (window.location.hash || "").slice(1);
@@ -298,6 +299,7 @@
     renderHero(d, s);
     renderStats(d, s);
     renderGoal(d.followers);
+    renderPartnerPath(d.channelStats, d.user);
     renderHighscores(d.highscores || {});
     renderHerd(d.herd);
     renderHall(d.hall);
@@ -319,7 +321,11 @@
     window.StreamUtil.data = d;
     document.dispatchEvent(new CustomEvent("streamdata", { detail: d }));
 
-    $("footer-updated").textContent = "Aktualisiert: " + fmtTime(d.updatedAt || new Date().toISOString()) + " Uhr";
+    // Twitch gerade nicht erreichbar → Server liefert die letzte gute Version (stale)
+    $("footer-updated").textContent = d.stale
+      ? "⚠️ Twitch gerade nicht erreichbar – Stand " + fmtTime(d.updatedAt) + " Uhr"
+      : "Aktualisiert: " + fmtTime(d.updatedAt || new Date().toISOString()) + " Uhr";
+    $("footer-updated").classList.toggle("stale", !!d.stale);
   }
 
   // ── Hero ─────────────────────────────────────────────────────────────────
@@ -331,7 +337,9 @@
 
     if (s.live) {
       status.textContent = "Jetzt live · " + fmtNum(s.viewers) + " Zuschauer";
-      $("hero-title").textContent = s.title || CFG.displayName + " ist live!";
+      // Chat-Befehle wie „!hangman !idle“ gehören nicht in die große Überschrift
+      var title = String(s.title || "").replace(/(^|\s)![\w-]+/g, " ").replace(/\s{2,}/g, " ").trim();
+      $("hero-title").textContent = title || CFG.displayName + " ist live!";
       $("hero-sub").textContent = s.game ? "🎮 " + s.game : "";
       $("hero-embed-btn").hidden = state.heroEmbedOpen;
     } else {
@@ -420,6 +428,36 @@
         if (el) el.textContent = fmtDuration(Date.now() - new Date(s.startedAt));
       }, 30000);
     }
+  }
+
+  // ── Weg zum Twitch-Partner (letzte 30 Tage, nur Summen) ──────────────────
+  function renderPartnerPath(cs, user) {
+    var box = $("partner-path");
+    if (!cs) { box.hidden = true; return; }
+    box.hidden = false;
+    if (user && user.broadcasterType === "partner") {
+      $("pp-grid").innerHTML = '<p class="pp-done">🎉 Geschafft – Mr27cent ist Twitch-Partner! Danke an die ganze Herde. 💜</p>';
+      $("pp-note").textContent = "";
+      return;
+    }
+    var g = cs.goal || { hours: 25, days: 12, viewers: 75 };
+    var items = [
+      ["⏱️", "Streamstunden", cs.hours || 0, g.hours, fmtNum(Math.round((cs.hours || 0) * 10) / 10) + " / " + g.hours + " h"],
+      ["📅", "Streamtage", cs.days || 0, g.days, fmtNum(cs.days || 0) + " / " + g.days],
+      ["👀", "Ø Zuschauer", cs.avgViewers || 0, g.viewers, (cs.avgViewers != null ? fmtNum(cs.avgViewers) : "–") + " / " + g.viewers]
+    ];
+    $("pp-grid").innerHTML = items.map(function (it) {
+      var pct = Math.min(100, Math.round(it[2] / it[3] * 100));
+      var ok = it[2] >= it[3];
+      return '<div class="pp-item' + (ok ? " ok" : "") + '">'
+        + '<div class="pp-label"><span aria-hidden="true">' + it[0] + "</span> " + esc(it[1])
+        + '<span class="pp-val">' + (ok ? "✅ " : "") + esc(it[4]) + "</span></div>"
+        + '<div class="bar" role="progressbar" aria-label="' + esc(it[1]) + '" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '">'
+        + '<span style="width:' + pct + '%"></span></div></div>';
+    }).join("");
+    $("pp-note").textContent = cs.since
+      ? "Gemessen seit " + fmtDate(cs.since) + " · jede Minute, die du live dabei bist, zählt mit! 💜"
+      : "Die Messung startet mit dem nächsten Stream – jede Minute, die du dabei bist, zählt mit! 💜";
   }
 
   // ── Follower-Ziel ────────────────────────────────────────────────────────
@@ -604,7 +642,7 @@
     $("emote-grid").innerHTML = emotes.map(function (e) {
       return '<div class="emote">'
         + (e.url && !DEMO ? '<img src="' + esc(e.url) + '" alt="' + esc(e.name) + '" loading="lazy">' : '<span class="emote-ph">' + esc(e.ph || "😺") + "</span>")
-        + '<span class="emote-name">' + esc(e.name) + "</span>"
+        + '<span class="emote-name" title="' + esc(e.name) + '">' + esc(e.name) + "</span>"
         + '<span class="emote-tier">' + esc(emoteTier(e)) + "</span></div>";
     }).join("");
   }
@@ -676,6 +714,15 @@
         + '<span class="stage-hours">ab ' + fmtNum(st.hours) + " h</span></div>";
     }).join("");
     $("stage-count").textContent = HERD.stages.length;
+    // Verlauf am rechten Rand zeigt „hier geht's weiter“ – am Ende ausblenden
+    var row = $("stage-row");
+    if (!row.dataset.fade) {
+      row.dataset.fade = "1";
+      var upd = function () { row.classList.toggle("at-end", row.scrollLeft + row.clientWidth >= row.scrollWidth - 4); };
+      row.addEventListener("scroll", upd, { passive: true });
+      window.addEventListener("resize", upd);
+      setTimeout(upd, 0);
+    }
   }
 
   // Eigene Stufe in der Stufen-Leiste hervorheben und hinscrollen
@@ -708,14 +755,14 @@
     var herd = state.herd;
     var q = String(query || "").trim().toLowerCase();
     if (!q || !herd) { box.innerHTML = ""; markStage(-1); return; }
-    var list = herd.members || [];
+    var list = state.visible || [];
     var idx = -1;
     // Nur Gazellen mit Namen sind auffindbar – anonyme bleiben anonym
     list.forEach(function (m, i) { if (idx === -1 && m.name && m.name.toLowerCase() === q) idx = i; });
     if (idx === -1) list.forEach(function (m, i) { if (idx === -1 && m.name && m.name.toLowerCase().indexOf(q) === 0) idx = i; });
     if (idx === -1) {
       markStage(-1);
-      box.innerHTML = '<p class="empty">Keine sichtbare Gazelle mit diesem Namen. Wer zuschaut, grast erst einmal anonym mit – '
+      box.innerHTML = '<p class="empty">Keine Gazelle mit diesem Namen in der Rangliste. Deine Zeit zählt schon mit – '
         + 'schreib <b>!herde</b> im Chat, dann erscheint deine Gazelle mit Namen. 🌱</p>';
       return;
     }
@@ -728,7 +775,7 @@
       + "<div>"
       + '<div class="me-name">' + esc(m.name) + "</div>"
       + '<div class="me-rank">' + esc(st.name) + " · Stufe " + stageNo(h) + "/" + HERD.stages.length
-      + " · Platz " + (idx + 1) + " von " + fmtNum(herd.total) + "</div>"
+      + " · Platz " + (idx + 1) + " von " + fmtNum(list.length) + "</div>"
       + '<div class="me-meta">' + fmtHours(m.minutes) + " zugeschaut in " + herd.year
       + (m.lastSeen ? " · zuletzt dabei am " + esc(fmtDate(m.lastSeen)) : "") + "</div>"
       + (nx
@@ -769,7 +816,7 @@
     $("hall").innerHTML = hall && hall.length
       ? hall.map(function (season) {
           return '<div class="hall-season"><div class="hall-year">Saison ' + season.year + "</div>"
-            + '<ol class="hall-list">' + season.top.map(function (m, i) {
+            + '<ol class="hall-list">' + season.top.filter(function (m) { return m.name; }).map(function (m, i) {
                 return '<li><span class="hall-medal">' + (medals[i] || i + 1) + "</span>"
                   + '<span class="hall-name' + (m.name ? "" : " anon") + '">' + esc(m.name || "Anonyme Gazelle") + "</span>"
                   + '<span class="hall-hours">' + fmtHours(m.minutes) + "</span></li>";
@@ -780,13 +827,18 @@
 
   function renderHerd(herd) {
     state.herd = herd;
-    var members = (herd && herd.members) || [];
+    var all = (herd && herd.members) || [];
+    // Rangliste nur mit Gazellen, die per !herde sichtbar sein wollen – die Zeit aller zählt trotzdem
+    var members = all.filter(function (m) { return m.name; });
+    state.visible = members;
     $("herd-season").textContent = herd ? "Saison " + herd.year : "";
     $("herd-names").innerHTML = members.filter(function (m) { return m.name; }).slice(0, 500)
       .map(function (m) { return '<option value="' + esc(m.name) + '">'; }).join("");
     $("herd-grid").innerHTML = members.length
       ? members.slice(0, HERD_CARDS).map(memberCard).join("")
-      : '<div class="card"><p class="empty">Die Herde wächst ab dem nächsten Stream – jeder Zuschauer wird automatisch als Kitz geboren.</p></div>';
+      : '<div class="card"><p class="empty">' + (all.length
+        ? "Noch hat niemand <b>!herde</b> geschrieben – schreib es in den Chat, dann erscheint deine Gazelle hier. Deine Zeit zählt schon jetzt mit! 🌱"
+        : "Die Herde wächst ab dem nächsten Stream – jeder Zuschauer wird automatisch als Kitz geboren.") + "</p></div>";
     // Plätze 13–100 als kompakte Liste
     var rest = members.slice(HERD_CARDS, HERD_TOP);
     $("herd-list").hidden = !rest.length;
@@ -799,7 +851,9 @@
         + '<span class="hr-stage">' + esc(stageFor(h).name) + " · Stufe " + stageNo(h) + "</span>"
         + '<span class="hr-hours">' + fmtHours(m.minutes) + "</span></li>";
     }).join("");
-    $("herd-total").textContent = members.length ? fmtNum(herd.total) + " Gazellen in der Herde" : "";
+    $("herd-total").textContent = all.length
+      ? fmtNum(herd.total) + " Gazellen in der Herde · " + fmtNum(members.length) + " davon mit Namen in der Rangliste"
+      : "";
     renderMe($("herd-search").value);
   }
 
@@ -863,7 +917,9 @@
     }
     return {
       updatedAt: new Date().toISOString(),
-      user: { displayName: "Mr27cent" },
+      user: { displayName: "Mr27cent", broadcasterType: "affiliate" },
+      channelStats: { since: at(-24, 19), samples: 300, avgViewers: 31.4, peakViewers: 58, hours: 25.5,
+        days: 9, streams: 9, goal: { hours: 25, days: 12, viewers: 75 } },
       stream: {
         live: live,
         title: live ? "Gemütlicher Abend in der Savanne 🌾 !hangman !idle" : "Gemütlicher Abend in der Savanne 🌾",
@@ -966,10 +1022,10 @@
           { name: "Zebrastreifen", score: 54, date: at(-14, 20) }
         ],
         idle: [
-          { name: "Zebrastreifen", score: 9, info: "Phase 4" },
-          { name: "Wüstenfuchs", score: 6, info: "Phase 3" },
-          { name: "Akazienkind", score: 4, info: "Phase 3" },
-          { name: "Gnu_Gnu", score: 1, info: "Phase 2" }
+          { name: "Zebrastreifen", score: 12, info: "⭐ 9 · Phase 4" },
+          { name: "Wüstenfuchs", score: 7, info: "⭐ 6 · Phase 3" },
+          { name: "Akazienkind", score: 3, info: "⭐ 4 · Phase 3" },
+          { name: "Gnu_Gnu", score: 0, info: "⭐ 1 · Phase 2" }
         ]
       },
       errors: []

@@ -739,7 +739,7 @@ body.sidebar-collapsed .tab-live { position: absolute; top: 8px; right: 8px; }
 }
 .emote img, .emote .emote-ph { width: 56px; height: 56px; object-fit: contain; }
 .emote .emote-ph { display: grid; place-items: center; font-size: 2.2rem; }
-.emote-name { font-size: .75rem; font-weight: 700; word-break: break-all; }
+.emote-name { max-width: 100%; font-size: .72rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .emote-tier { font-size: .7rem; color: var(--text-dim); }
 
 /* ── Über mich ──────────────────────────────────────────────────────────── */
@@ -1081,8 +1081,9 @@ details p { margin: .4rem 0 0; color: var(--text-dim); }
 .chase.lost .chase-gazelle { opacity: .25; }
 
 .wotd-word {
+  --n: 8;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
   gap: .35rem;
   margin: .4rem 0 .8rem;
@@ -1090,7 +1091,8 @@ details p { margin: .4rem 0 0; color: var(--text-dim); }
 .slot-l {
   display: grid;
   place-items: center;
-  width: 2.1rem;
+  flex: 0 0 auto;
+  width: min(2.1rem, calc((100% - (var(--n) - 1) * .35rem) / var(--n)));
   height: 2.6rem;
   border-bottom: 3px solid var(--accent);
   font-family: "Lilita One", sans-serif;
@@ -1497,7 +1499,8 @@ details p { margin: .4rem 0 0; color: var(--text-dim); }
 }
 @media (max-width: 560px) {
   .keyboard { grid-template-columns: repeat(8, minmax(0, 1fr)); }
-  .slot-l { width: 1.6rem; height: 2.2rem; font-size: 1.3rem; }
+  .wotd-word { gap: .25rem; }
+  .slot-l { width: min(1.6rem, calc((100% - (var(--n) - 1) * .25rem) / var(--n))); height: 2.2rem; font-size: 1.2rem; }
 }
 
 /* ── Responsive ─────────────────────────────────────────────────────────── */
@@ -1670,3 +1673,34 @@ details p { margin: .4rem 0 0; color: var(--text-dim); }
 @media (max-width: 760px) {
   .herd-list { columns: 1; }
 }
+
+/* ── Weg zum Twitch-Partner ─────────────────────────────────────────────── */
+.partner-path { margin-top: 1rem; }
+.pp-head { display: flex; justify-content: space-between; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
+.pp-head h2 { margin: 0; }
+.pp-sub { color: var(--text-dim); font-size: .85rem; font-weight: 700; }
+.pp-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-top: .8rem; }
+.pp-label { display: flex; align-items: baseline; gap: .35rem; font-weight: 800; font-size: .92rem; }
+.pp-val { margin-left: auto; color: var(--accent); white-space: nowrap; }
+.pp-item.ok .pp-val { color: #2e7d32; }
+:root[data-theme="night"] .pp-item.ok .pp-val { color: #8fdc94; }
+.pp-item .bar { margin-top: .4rem; }
+.pp-note { margin: .8rem 0 0; color: var(--text-dim); font-size: .85rem; }
+.pp-done { margin: 0; font-weight: 800; grid-column: 1 / -1; }
+
+/* ── Handy: kompakteres Dashboard, wischbare Stufen-Leiste erkennbar ──────── */
+.stage-row { -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
+.stage-row.at-end { -webkit-mask-image: none; mask-image: none; }
+@media (max-width: 640px) {
+  .pp-grid { grid-template-columns: 1fr; gap: .7rem; }
+  .game-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; }
+  .game { padding: .4rem; }
+  .game-name { font-size: .8rem; }
+  .game-last { display: none; }
+  .wrapped-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
+  .wrap-card { padding: .8rem .5rem; }
+  .wrap-icon { font-size: 1.6rem; }
+  .wrap-big { font-size: 1.2rem; }
+  .wrap-label { font-size: .78rem; }
+}
+#footer-updated.stale { color: var(--live); font-weight: 700; }

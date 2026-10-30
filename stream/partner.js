@@ -25,14 +25,22 @@
     var live = [];
     var followers = d && d.followers != null ? fmtNum(d.followers) : "–";
     live.push(stat("🐾", "Follower auf Twitch", followers, d && d.followers != null ? "live von Twitch" : null));
-    if (P.avgViewers) live.push(stat("👀", "Ø Zuschauer", String(P.avgViewers), "pro Stream"));
-    var herd = d && d.herd;
-    // Die Zählung der Herde startete im Oktober 2026 – das ehrlich dazuschreiben
-    if (herd && herd.total) {
-      live.push(stat("🦌", "Verschiedene Zuschauer", fmtNum(herd.total),
-        Number(herd.year) === 2026 ? "gezählt seit Oktober 2026" : "in der Saison " + herd.year));
+    // Echte Zahlen der letzten 30 Tage – erst zeigen, wenn mindestens 2 Wochen gemessen wurde
+    var cs = d && d.channelStats;
+    var measured = cs && cs.since && cs.samples && (Date.now() - new Date(cs.since).getTime()) >= 14 * 864e5;
+    if (measured && cs.avgViewers != null) {
+      live.push(stat("👀", "Ø Zuschauer", fmtNum(cs.avgViewers), "letzte 30 Tage · Spitze " + fmtNum(cs.peakViewers)));
+    } else if (P.avgViewers) {
+      live.push(stat("👀", "Ø Zuschauer", String(P.avgViewers), "pro Stream"));
     }
-    var facts = (P.facts || []).map(function (f) { return stat(f.icon, f.label, f.value, f.hint); });
+    var facts = (P.facts || []).map(function (f) {
+      // „Streams pro Woche“ aus den echten Daten, sobald genug gemessen wurde
+      if (f.auto === "streams" && measured && cs.streams) {
+        return stat(f.icon, f.label, "ca. " + fmtNum(Math.max(1, Math.round(cs.streams / 30 * 7))) + "× / Woche",
+          fmtNum(Math.round(cs.hours)) + " Stunden live in den letzten 30 Tagen");
+      }
+      return stat(f.icon, f.label, f.value, f.hint);
+    });
     $("partner-stats").innerHTML = live.concat(facts).join("");
   }
 

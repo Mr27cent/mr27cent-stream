@@ -190,6 +190,8 @@
 
   function renderHangman() {
     var wrong = wrongCount(), won = isSolved(), lost = wrong >= MAX_WRONG;
+    // Ganzes Wort in einer Zeile – bei langen Wörtern werden die Felder schmaler
+    $("wotd-word").style.setProperty("--n", wotd.word.length);
     $("wotd-word").innerHTML = wotd.word.split("").map(function (l) {
       var show = wotd.guessed.indexOf(l) !== -1 || lost;
       return '<span class="slot-l' + (show ? " shown" : "") + (lost && wotd.guessed.indexOf(l) === -1 ? " missed" : "") + '">'
@@ -600,8 +602,10 @@
         return '<li class="streak-row' + (mine ? " mine" : "") + '">'
           + '<span class="streak-rank">' + (["🥇", "🥈", "🥉"][i] || i + 1) + "</span>"
           + '<span class="streak-name">' + esc(x.name) + "</span>"
-          + '<span class="streak-now" title="Aktuelle Serie">' + (x.current ? "🔥 " + x.current : "") + "</span>"
-          + '<span class="streak-best" title="Längste Serie">' + x.best + " " + (x.best === 1 ? "Tag" : "Tage") + "</span></li>";
+          // Läuft die Rekord-Serie gerade noch, nur einmal mit 🔥 anzeigen statt „🔥 23 23 Tage“
+          + '<span class="streak-now" title="Aktuelle Serie">' + (x.current && x.current !== x.best ? "🔥 " + x.current + " aktuell" : "") + "</span>"
+          + '<span class="streak-best" title="Längste Serie">' + (x.current && x.current === x.best ? "🔥 " : "")
+          + x.best + " " + (x.best === 1 ? "Tag" : "Tage") + "</span></li>";
       }).join("") : '<li class="empty">Noch niemand dabei – hol dir Platz 1! 🦌</li>';
     }
     renderMe();

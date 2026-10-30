@@ -22,17 +22,17 @@
 <meta property="og:image:height" content="630">
 <meta property="og:locale" content="de_DE">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="style.css?v=19">
-<link rel="stylesheet" href="savanna.css?v=19">
+<link rel="stylesheet" href="style.css?v=20">
+<link rel="stylesheet" href="savanna.css?v=20">
 <!-- Theme vor dem ersten Rendern setzen, damit nichts flackert -->
-<script src="theme.js?v=19"></script>
-<script src="config.js?v=19"></script>
-<script src="herd-core.js?v=19"></script>
-<script src="app.js?v=19" defer></script>
-<script src="extras.js?v=19" defer></script>
-<script src="savanna.js?v=19" defer></script>
-<script src="raetsel.js?v=19" defer></script>
-<script src="partner.js?v=19" defer></script>
+<script src="theme.js?v=20"></script>
+<script src="config.js?v=20"></script>
+<script src="herd-core.js?v=20"></script>
+<script src="app.js?v=20" defer></script>
+<script src="extras.js?v=20" defer></script>
+<script src="savanna.js?v=20" defer></script>
+<script src="raetsel.js?v=20" defer></script>
+<script src="partner.js?v=20" defer></script>
 </head>
 <body>
 
@@ -101,10 +101,7 @@
     <a href="#herd"       data-tab="herd"><span class="tab-icon">🦌</span><span class="tab-label">Die Herde</span></a>
     <a href="#play"       data-tab="play"><span class="tab-icon">🎯</span><span class="tab-label">Mitmachen</span></a>
     <a href="#clips"      data-tab="clips"><span class="tab-icon">🎬</span><span class="tab-label">Clips</span></a>
-    <a href="#schedule"   data-tab="schedule"><span class="tab-icon">📅</span><span class="tab-label">Streamplan</span></a>
     <a href="#about"      data-tab="about"><span class="tab-icon">🌾</span><span class="tab-label">Über mich</span></a>
-    <a href="#community"  data-tab="community"><span class="tab-icon">🐾</span><span class="tab-label">Community</span></a>
-    <a href="#partner"    data-tab="partner" class="tab-partner"><span class="tab-icon">🤝</span><span class="tab-label">Für Partner</span></a>
   </nav>
   <button class="install-btn" id="install-btn" type="button" hidden>
     <span class="tab-icon">📲</span><span class="tab-label">Als App installieren</span>
@@ -151,6 +148,18 @@
       </div>
       <p class="goal-note" id="goal-note"></p>
     </div>
+    <div class="card partner-path" id="partner-path" hidden>
+      <div class="pp-head">
+        <h2>💜 Weg zum Twitch-Partner</h2>
+        <span class="pp-sub" id="pp-sub">letzte 30 Tage</span>
+      </div>
+      <div class="pp-grid" id="pp-grid"></div>
+      <p class="pp-note" id="pp-note"></p>
+    </div>
+    <div class="subsection" id="schedule">
+      <h2 class="sub-title big"><span>📅</span> Streamplan</h2>
+      <div class="card" id="schedule-box"></div>
+    </div>
     <div class="subsection" id="games">
       <h2 class="sub-title big"><span>🎮</span> Gespielte Spiele</h2>
       <div class="game-grid" id="game-grid"></div>
@@ -187,8 +196,8 @@
     </div>
     <div class="card herd-intro">
       <p>Jeder Zuschauer startet als <b>neugeborenes Kitz</b> und wächst mit jeder Stunde, die man beim Stream dabei ist.
-        Wer nur zuschaut, grast <b>anonym</b> mit – wer mit Namen erscheinen möchte, schreibt <b>!herde</b> in den Chat
-        (<b>!herde aus</b> macht dich wieder anonym).
+        Deine Zeit zählt immer mit – in der <b>Rangliste</b> und der <b>Savanne</b> erscheinst du aber erst, wenn du
+        <b>!herde</b> in den Chat schreibst (<b>!herde aus</b> blendet dich wieder aus).
         In <b><span id="stage-count">27</span> Stufen</b> geht es bis zur bunten Universumsgazelle – mit <b id="herd-max-text">1.000 Stunden</b> ist sie ausgewachsen. Am 1. Januar beginnt eine neue Saison.</p>
       <div class="stage-row" id="stage-row" tabindex="0" role="region" aria-label="Alle Stufen der Herde (seitlich scrollen)"></div>
     </div>
@@ -317,11 +326,6 @@
     <div class="card cotm" id="cotm"></div>
   </section>
 
-  <!-- ── Streamplan ─────────────────────────────────────────────────── -->
-  <section id="schedule" class="section tab-panel">
-    <h1 class="section-title"><span>📅</span> Streamplan</h1>
-    <div class="card" id="schedule-box"></div>
-  </section>
 
 
 
@@ -329,7 +333,7 @@
 
   <!-- ── Über mich / Setup / FAQ / Regeln ───────────────────────────── -->
   <section id="about" class="section tab-panel">
-    <h1 class="section-title"><span>🌾</span> Über mich</h1>
+    <h1 class="section-title"><span>🌾</span> Über mich &amp; Community</h1>
     <div class="about-grid">
       <div class="card about-card">
         <h2>Hallo!</h2>
@@ -348,17 +352,9 @@
         <ol class="rules-list" id="rules-list"></ol>
       </div>
     </div>
-    <div class="subsection" id="milestones">
-      <h2 class="sub-title big"><span>🏁</span> Meilensteine</h2>
-      <div class="card"><ol class="timeline" id="timeline"></ol></div>
-      </div>
-
-  </section>
-
-  <!-- ── Community ──────────────────────────────────────────────────── -->
-  <section id="community" class="section tab-panel">
-    <h1 class="section-title"><span>🐾</span> Community</h1>
-    <div class="community-grid">
+    <div class="subsection" id="community">
+      <h2 class="sub-title big"><span>🐾</span> Community</h2>
+      <div class="community-grid">
       <div class="card">
         <h2>Socials</h2>
         <div class="social-list" id="social-list"></div>
@@ -382,8 +378,14 @@
       <h2 class="sub-title big"><span>😺</span> Kanal-Emotes</h2>
       <div class="card emote-grid" id="emote-grid"></div>
       </div>
+    </div>
+    <div class="subsection" id="milestones">
+      <h2 class="sub-title big"><span>🏁</span> Meilensteine</h2>
+      <div class="card"><ol class="timeline" id="timeline"></ol></div>
+      </div>
 
   </section>
+
 
   <!-- ── Für Marken & Partner (Media Kit, nicht im Menü – Link: #partner) ── -->
   <section id="partner" class="section tab-panel">

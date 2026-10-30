@@ -84,6 +84,13 @@ var VOTES_SHEET = "STIMMEN";
 
 var TOP_CLIPS_N = 7;           // Clip des Jahres + 6 weitere
 var RESPONSE_CACHE_SEC = 60;   // Twitch wird höchstens 1x pro Minute gefragt
+var LAST_GOOD_SEC = 21600;     // letzte funktionierende Antwort 6 h als Notreserve
+
+// Zuschauerzahl bei jedem 5-Minuten-Lauf (nur live): Zeit | Zuschauer | Spiel
+var VIEWERS_SHEET = "ZUSCHAUER";
+var VIEWERS_KEEP_DAYS = 90;
+// Twitch „Weg zum Partner“: in den letzten 30 Tagen
+var PARTNER_GOAL = { hours: 25, days: 12, viewers: 75 };
 
 // Rätsel (Wort des Tages, Wordle, Emotle) – Serien-Bestenliste
 // Die Wortlisten holt sich das Script von der Webseite (raetsel.json),
@@ -131,10 +138,24 @@ function doGet(e) {
   var cached = cache.get("payload");
   if (cached) return json_(cached);
 
-  var payload = JSON.stringify(buildPayload_());
+  var obj = null;
+  try { obj = buildPayload_(); } catch (err) { console.error("Payload: " + err.message); }
+  // Twitch nicht erreichbar oder Token abgelaufen → letzte gute Antwort zeigen
+  if (!obj || !obj.user) {
+    var last = cache.get("lastgood");
+    if (last) {
+      var old = JSON.parse(last);
+      old.stale = true;
+      old.errors = (old.errors || []).concat(obj ? obj.errors : ["Daten gerade nicht verfügbar"]);
+      return json_(JSON.stringify(old));
+    }
+    if (!obj) obj = { errors: ["Daten gerade nicht verfügbar"], updatedAt: new Date().toISOString() };
+  }
+  var payload = JSON.stringify(obj);
   // Große Herden sprengen das 100-KB-Limit des Caches – dann bleibt wenigstens
   // der Twitch-Teil zwischengespeichert (siehe twitchPart_)
   try { cache.put("payload", payload, RESPONSE_CACHE_SEC); } catch (err) { /* > 100 KB */ }
+  if (obj.user) { try { cache.put("lastgood", payload, LAST_GOOD_SEC); } catch (err) { /* > 100 KB */ } }
   return json_(payload);
 }
 
@@ -200,8 +221,10 @@ function twitchPart_() {
     try { out[key] = fn(); }
     catch (err) { out[key] = null; out.errors.push(key + ": " + err.message); }
   }
-  var user = getUser_();
+  var user = null;
+  try { user = getUser_(); } catch (err) { out.errors.push("user: " + err.message); }
   out.user = user;
+  if (!user) return out;          // nicht cachen – beim nächsten Aufruf neu versuchen
   var id = user.id;
   safe("stream",      function () { return getStream_(id); });
   safe("followers",   function () { return getFollowers_(id); });
@@ -226,6 +249,7 @@ function buildPayload_() {
   safe("poll",      function () { return getPoll_(); });
   safe("hall",      function () { return getHallOfFame_(); });
   safe("streaks",   function () { return getStreaks_(); });
+  safe("channelStats", function () { return getChannelStats_(); });
   safe("highscores", function () {
     var hs = {};
     Object.keys(HIGHSCORE_SHEETS).forEach(function (k) {
@@ -298,10 +322,14 @@ function helix_(path, token) {
   return JSON.parse(res.getContentText());
 }
 
+// Profil ändert sich selten → 6 h zwischenspeichern (spart Twitch-Abfragen)
 function getUser_() {
+  var cache = CacheService.getScriptCache();
+  var hit = cache.get("user");
+  if (hit) return JSON.parse(hit);
   var u = helix_("users?login=" + encodeURIComponent(STREAMER_LOGIN)).data[0];
   if (!u) throw new Error("Twitch-Nutzer nicht gefunden: " + STREAMER_LOGIN);
-  return {
+  var out = {
     id: u.id,
     login: u.login,
     displayName: u.display_name,
@@ -309,6 +337,8 @@ function getUser_() {
     avatar: u.profile_image_url,
     broadcasterType: u.broadcaster_type
   };
+  cache.put("user", JSON.stringify(out), 21600);
+  return out;
 }
 
 function getStream_(id) {
@@ -432,7 +462,7 @@ function readHighscores_(name) {
     .slice(0, HIGHSCORE_TOP_N);
 }
 
-// Top 10 des Sammelspiels: Sterne zählen, dann Phase (wie im Spiel selbst)
+// Top 10 des Sammelspiels in der Reihenfolge des Spiels (Legenden-Punkte, dann Sterne, Phase)
 function readIdleLeaderboard_() {
   var res = UrlFetchApp.fetch(IDLE_SUPABASE.url + "/rest/v1/rpc/get_leaderboard?limit=" + HIGHSCORE_TOP_N, {
     method: "post",
@@ -448,9 +478,9 @@ function readIdleLeaderboard_() {
     .map(function (r) {
       return {
         name: String(r.name || "Zuschauer"),
-        score: Number(r.stars) || 0,
+        score: Number(r.legend_points) || 0,
         date: null,
-        info: "Phase " + (Number(r.phase) || 1)
+        info: "⭐ " + (Number(r.stars) || 0) + " · Phase " + (Number(r.phase) || 1)
       };
     });
 }
@@ -490,10 +520,65 @@ function logStream() {
     var s = helix_("streams?user_id=" + user.id).data[0];
     if (!s) return;
     if (s.game_name) logPlaytime_(s);
+    try { logViewers_(s); } catch (err) { console.warn("Zuschauerzahl: " + err.message); }
     try { logWatchtime_(user.id); } catch (err) { console.warn("Zuschauzeit: " + err.message); }
   } finally {
     lock.releaseLock();
   }
+}
+
+// ── Zuschauerzahlen & „Weg zum Partner“ ────────────────────────────────────
+function viewersSheet_() {
+  var sh = sheet_(VIEWERS_SHEET);
+  if (!sh) {
+    sh = SpreadsheetApp.openById(props_().getProperty("SPREADSHEET_ID")).insertSheet(VIEWERS_SHEET);
+    sh.appendRow(["Zeit", "Zuschauer", "Spiel"]);
+  }
+  return sh;
+}
+
+function logViewers_(s) {
+  var sh = viewersSheet_();
+  sh.appendRow([new Date(), Number(s.viewer_count) || 0, safeCell_(s.game_name || "")]);
+  // Ältere Messungen gelegentlich entfernen (Zeilen sind zeitlich sortiert)
+  var n = sh.getLastRow() - 1;
+  if (n > 2000 && n % 500 === 0) {
+    var cutoff = Date.now() - VIEWERS_KEEP_DAYS * 864e5;
+    var times = sh.getRange(2, 1, n, 1).getValues();
+    var old = 0;
+    while (old < times.length && new Date(times[old][0]).getTime() < cutoff) old++;
+    if (old) sh.deleteRows(2, old);
+  }
+}
+
+// Kennzahlen der letzten 30 Tage – nur Summen, keine Personen
+function getChannelStats_() {
+  var sh = sheet_(VIEWERS_SHEET);
+  var empty = { since: null, samples: 0, avgViewers: null, peakViewers: null, hours: 0, days: 0, streams: 0, goal: PARTNER_GOAL };
+  if (!sh || sh.getLastRow() < 2) return empty;
+  var rows = sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues()
+    .filter(function (r) { return r[0] instanceof Date; });
+  if (!rows.length) return empty;
+  var from = Date.now() - 30 * 864e5;
+  var recent = rows.filter(function (r) { return r[0].getTime() >= from; });
+  var sum = 0, peak = 0, days = {}, streams = 0, prev = 0;
+  recent.forEach(function (r) {
+    var v = Number(r[1]) || 0, t = r[0].getTime();
+    sum += v; if (v > peak) peak = v;
+    days[Utilities.formatDate(r[0], "Europe/Berlin", "yyyy-MM-dd")] = true;
+    if (!prev || t - prev > 30 * 60000) streams++;      // > 30 min Pause = neuer Stream
+    prev = t;
+  });
+  return {
+    since: rows[0][0].toISOString(),
+    samples: recent.length,
+    avgViewers: recent.length ? Math.round(sum / recent.length * 10) / 10 : null,
+    peakViewers: recent.length ? peak : null,
+    hours: Math.round(recent.length * PLAYTIME_INTERVAL_MIN / 60 * 10) / 10,
+    days: Object.keys(days).length,
+    streams: streams,
+    goal: PARTNER_GOAL
+  };
 }
 
 function logPlaytime_(s) {
@@ -648,7 +733,9 @@ function getHallOfFame_() {
   return Object.keys(years).map(Number).sort(function (a, b) { return b - a; }).map(function (y) {
     return {
       year: y,
-      top: herdMembers_(rows, y).slice(0, HALL_TOP_N).map(function (m) { return { name: vis[m.login] ? m.name : null, minutes: m.minutes }; })
+      // Nur wer per !herde mit Namen dabei sein will, kommt in die Ruhmeshalle
+      top: herdMembers_(rows, y).filter(function (m) { return vis[m.login]; }).slice(0, HALL_TOP_N)
+        .map(function (m) { return { name: m.name, minutes: m.minutes }; })
     };
   });
 }
@@ -658,6 +745,11 @@ function overlayPayload_() {
   var cache = CacheService.getScriptCache();
   var hit = cache.get("overlay");
   if (hit) return hit;
+  try { return overlayFresh_(cache); }
+  catch (err) { console.warn("Overlay: " + err.message); return JSON.stringify({ live: false, members: [] }); }
+}
+
+function overlayFresh_(cache) {
   var user = getUser_();
   var live = !!helix_("streams?user_id=" + user.id).data[0];
   var vis = visibleSet_();
@@ -1187,11 +1279,13 @@ function cleanupOldSeasons() {
   if (!sh || sh.getLastRow() < 2) return;
   var year = new Date().getFullYear();
   var rows = sh.getRange(2, 1, sh.getLastRow() - 1, 5).getValues();
+  var vis = visibleSet_();
   var keep = {};
   var byYear = {};
   rows.forEach(function (r, i) {
     var y = Number(r[0]);
-    if (y && y < year) (byYear[y] = byYear[y] || []).push({ i: i, minutes: Number(r[3]) || 0 });
+    // Ruhmeshalle zeigt nur sichtbare Gazellen → nur deren Bestwerte aufheben
+    if (y && y < year && vis[cleanLogin_(r[1])]) (byYear[y] = byYear[y] || []).push({ i: i, minutes: Number(r[3]) || 0 });
   });
   Object.keys(byYear).forEach(function (y) {
     byYear[y].sort(function (a, b) { return b.minutes - a.minutes; })
