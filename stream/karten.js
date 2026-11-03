@@ -539,25 +539,185 @@
   }
 
   // ── Pack öffnen ────────────────────────────────────────────────────────────
+  // Ablauf: Pack aufreißen → Karten 1–4 einzeln wegwischen → die 5. (seltenere)
+  // Karte liegt verdeckt, leuchtet in ihrer Farbe und dreht sich beim langsamen
+  // Wischen mit → Übersicht aller 5 Karten. „Überspringen“ geht direkt zur Übersicht.
+  var pack = null;   // { res, step: "pack" | "cards" | "summary", idx, flip, revealed }
+  var REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
   function showPack(res) {
-    var stage = $("kt-pack");
-    var cards = res.cards || [];
-    var best = cards.reduce(function (b, c) { return Math.max(b, RARITY_ORDER.indexOf(c.rarity) + (c.shiny ? 10 : 0)); }, 0);
-    stage.innerHTML = '<div class="kt-pack-box" role="dialog" aria-modal="true" aria-label="Pack geöffnet">'
-      + "<h2>" + esc(SOURCE_NAMES[res.source] || "Pack") + " geöffnet</h2>"
-      + '<div class="kt-pack-row">' + cards.map(function (c, i) {
-        return '<div class="kt-flip" style="--i:' + i + '"><div class="kt-flip-in">'
-          + '<div class="kt-back" aria-hidden="true"><svg><use href="#sym-gazelle"/></svg></div>'
-          + '<div class="kt-front">' + cardTile(c, { reveal: true, isNew: c["new"] }) + "</div></div></div>";
-      }).join("") + "</div>"
-      + (best >= 10 ? '<p class="kt-pack-wow">✨ SHINY! ✨</p>' : best >= 4 ? '<p class="kt-pack-wow">🔥 Was für ein Zug!</p>' : "")
-      + '<div class="kt-pack-btns">'
-      + (res.left || (state.me && state.me.packs && state.me.packs.length > 1)
-        ? '<button class="btn btn-primary" type="button" data-act="open-next">Nächstes Pack öffnen</button>' : "")
-      + '<button class="btn btn-ghost" type="button" data-act="pack-close">Schließen</button></div></div>';
-    stage.hidden = false;
-    var close = stage.querySelector("[data-act=pack-close]");
-    if (close) close.focus();
+    pack = { res: res, step: REDUCED ? "summary" : "pack", idx: 0, flip: 0, revealed: false };
+    $("kt-pack").hidden = false;
+    drawPack();
+  }
+
+  function bestOf(cards) {
+    return cards.reduce(function (b, c) { return Math.max(b, RARITY_ORDER.indexOf(c.rarity) + (c.shiny ? 10 : 0)); }, 0);
+  }
+  function wowText(best) {
+    return best >= 10 ? "✨ SHINY! ✨" : best >= 5 ? "🔥 Was für ein Zug!" : best >= 4 ? "💜 Episch!" : "";
+  }
+
+  function drawPack() {
+    var res = pack.res, cards = res.cards || [];
+    var title = esc(SOURCE_NAMES[res.source] || "Pack");
+    var body, hint = "", foot = "";
+    if (pack.step === "pack") {
+      body = '<div class="kt-foil" id="kt-foil" role="button" tabindex="0" aria-label="Pack aufreißen">'
+        + '<span class="kt-foil-top"></span><span class="kt-foil-body"><svg aria-hidden="true"><use href="#sym-gazelle"/></svg>'
+        + "<b>Herden-Karten</b><small>5 Karten · Serie 1</small></span></div>";
+      hint = "Tippen oder wischen, um das Pack aufzureißen";
+      foot = '<button class="btn btn-ghost" type="button" data-act="pack-skip">Überspringen</button>';
+    } else if (pack.step === "cards") {
+      var i = pack.idx, c = cards[i], last = i === cards.length - 1;
+      var under = "";
+      for (var k = Math.min(cards.length - 1 - i, 3); k >= 1; k--) {
+        under += '<div class="kt-stack-card" style="--k:' + k + '"><div class="kt-back"><svg aria-hidden="true"><use href="#sym-gazelle"/></svg></div></div>';
+      }
+      var top = last
+        ? '<div class="kt-top kt-top-last r-' + c.rarity + (c.shiny ? " is-shiny" : "") + '" id="kt-top" tabindex="0" aria-label="Letzte Karte – langsam wischen zum Aufdecken">'
+          + '<div class="kt-face kt-back glow"><svg aria-hidden="true"><use href="#sym-gazelle"/></svg></div>'
+          + '<div class="kt-face kt-front">' + cardTile(c, { reveal: true, isNew: c["new"] }) + "</div></div>"
+        : '<div class="kt-top" id="kt-top" tabindex="0" aria-label="Nächste Karte">' + cardTile(c, { reveal: true, isNew: c["new"] }) + "</div>";
+      body = '<div class="kt-stage">' + under + top + "</div>"
+        + '<div class="kt-dots" aria-hidden="true">' + cards.map(function (x, n) {
+          return "<span" + (n < i ? ' class="done"' : n === i ? ' class="on"' : "") + "></span>";
+        }).join("") + "</div>";
+      hint = last ? "Die letzte Karte – <b>langsam</b> zur Seite wischen …" : "Wischen oder tippen für die nächste Karte (" + (i + 1) + "/" + cards.length + ")";
+      foot = '<button class="btn btn-ghost" type="button" data-act="pack-skip">Überspringen</button>';
+    } else {
+      var best = bestOf(cards);
+      body = '<div class="kt-pack-row">' + cards.map(function (x, n) {
+        return '<div class="kt-sum" style="--i:' + n + '">' + cardTile(x, { reveal: true, isNew: x["new"] }) + "</div>";
+      }).join("") + "</div>" + (wowText(best) ? '<p class="kt-pack-wow">' + wowText(best) + "</p>" : "");
+      foot = (state.me && state.me.packs && state.me.packs.length
+        ? '<button class="btn btn-primary" type="button" data-act="open-next">Nächstes Pack öffnen (' + state.me.packs.length + ")</button>" : "")
+        + '<button class="btn btn-ghost" type="button" data-act="pack-close">Schließen</button>';
+    }
+    $("kt-pack").innerHTML = '<div class="kt-pack-box kt-open-box" role="dialog" aria-modal="true" aria-label="' + title + ' öffnen">'
+      + "<h2>" + title + "</h2>" + body
+      + '<p class="kt-step-hint" id="kt-step-hint">' + hint + "</p>"
+      + '<div class="kt-pack-btns">' + foot + "</div></div>";
+
+    if (pack.step === "pack") bindFoil($("kt-foil"));
+    else if (pack.step === "cards") bindTop($("kt-top"), pack.idx === cards.length - 1);
+    var focus = $("kt-foil") || $("kt-top") || $("kt-pack").querySelector("[data-act]");
+    if (focus) focus.focus({ preventScroll: true });
+  }
+
+  // Ziehen mit Maus, Finger oder Stift; tap = kaum bewegt
+  function bindDrag(el, onMove, onEnd) {
+    var x0 = null, dx = 0;
+    el.addEventListener("pointerdown", function (e) {
+      x0 = e.clientX; dx = 0;
+      try { el.setPointerCapture(e.pointerId); } catch (err) { /* egal */ }
+      el.classList.add("dragging");
+    });
+    el.addEventListener("pointermove", function (e) {
+      if (x0 === null) return;
+      dx = e.clientX - x0;
+      onMove(dx);
+    });
+    function end() {
+      if (x0 === null) return;
+      x0 = null;
+      el.classList.remove("dragging");
+      onEnd(dx);
+    }
+    el.addEventListener("pointerup", end);
+    el.addEventListener("pointercancel", end);
+  }
+
+  function bindFoil(foil) {
+    var done = false;
+    function tear() {
+      if (done) return;
+      done = true;
+      foil.classList.add("torn");
+      setTimeout(function () { pack.step = "cards"; drawPack(); }, 850);
+    }
+    bindDrag(foil, function (dx) {
+      if (!done) foil.style.setProperty("--pull", Math.min(1, Math.abs(dx) / 120));
+      if (Math.abs(dx) > 120) tear();
+    }, function () { tear(); });
+    foil.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); tear(); } });
+  }
+
+  function nextCard(el, dir) {
+    el.style.transition = "transform .38s ease-in, opacity .38s ease-in";
+    el.style.transform = "translateX(" + (dir * Math.max(window.innerWidth, 600)) + "px) rotate(" + (dir * 28) + "deg)";
+    el.style.opacity = "0";
+    setTimeout(function () { pack.idx++; drawPack(); }, 330);
+  }
+
+  // Letzte Karte: Drehwinkel folgt dem Finger (langsam), Rück-/Vorderseite tauschen bei 50 %
+  function setFlip(el, p, dx) {
+    var back = el.querySelector(".kt-back"), front = el.querySelector(".kt-front");
+    back.style.transform = "rotateY(" + (p * 180) + "deg)";
+    front.style.transform = "rotateY(" + (p * 180 - 180) + "deg)";
+    back.style.opacity = p < 0.5 ? "1" : "0";
+    front.style.opacity = p < 0.5 ? "0" : "1";
+    el.style.transform = "translateX(" + (dx || 0) * 0.3 + "px) rotate(" + (dx || 0) / 40 + "deg)";
+    pack.flip = p;
+  }
+
+  function animateFlip(el, to, ms, done) {
+    var from = pack.flip, t0 = null;
+    function step(t) {
+      if (t0 === null) t0 = t;
+      var k = Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - k, 3);
+      setFlip(el, from + (to - from) * e, 0);
+      if (k < 1) requestAnimationFrame(step); else if (done) done();
+    }
+    requestAnimationFrame(step);
+  }
+
+  function reveal(el) {
+    pack.revealed = true;
+    el.classList.add("revealed");
+    var c = pack.res.cards[pack.idx];
+    var wow = wowText(RARITY_ORDER.indexOf(c.rarity) + (c.shiny ? 10 : 0));
+    $("kt-step-hint").innerHTML = (wow ? "<b>" + wow + "</b> · " : "") + "Tippen für die Übersicht";
+  }
+
+  function bindTop(el, last) {
+    if (!last) {
+      bindDrag(el, function (dx) {
+        el.style.transition = "none";
+        el.style.transform = "translateX(" + dx + "px) rotate(" + dx / 18 + "deg)";
+      }, function (dx) {
+        if (Math.abs(dx) > 70 || Math.abs(dx) < 6) return nextCard(el, dx > 0 ? 1 : -1);
+        el.style.transition = "transform .25s";
+        el.style.transform = "";
+      });
+      el.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " " || e.key === "ArrowRight") { e.preventDefault(); nextCard(el, -1); }
+      });
+      return;
+    }
+    var busyFlip = false;
+    function finish(ms) {
+      busyFlip = true;
+      animateFlip(el, 1, ms, function () { busyFlip = false; reveal(el); });
+    }
+    setFlip(el, 0, 0);
+    bindDrag(el, function (dx) {
+      if (pack.revealed || busyFlip) return;
+      // Eine ganze Drehung braucht einen langen Wischweg (max. 320 px, auf dem Handy ~60 % der Breite)
+      setFlip(el, Math.min(1, Math.abs(dx) / Math.min(320, window.innerWidth * 0.6)), dx);
+    }, function (dx) {
+      if (busyFlip) return;
+      if (pack.revealed) { pack.step = "summary"; drawPack(); return; }
+      if (Math.abs(dx) < 6) return finish(1800);           // Tippen: langsam von selbst
+      if (pack.flip > 0.45) return finish(1100);
+      busyFlip = true;
+      animateFlip(el, 0, 400, function () { busyFlip = false; });
+    });
+    el.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter" && e.key !== " " && e.key !== "ArrowRight") return;
+      e.preventDefault();
+      if (pack.revealed) { pack.step = "summary"; drawPack(); } else if (!busyFlip) finish(1800);
+    });
   }
 
   function openPack(btn) {
@@ -639,6 +799,9 @@
     if (act === "open" || act === "open-next") {
       if (act === "open-next") $("kt-pack").hidden = true;
       openPack(t);
+    } else if (act === "pack-skip") {
+      pack.step = "summary";
+      drawPack();
     } else if (act === "pack-close") {
       $("kt-pack").hidden = true;
     } else if (act === "card-close") {
