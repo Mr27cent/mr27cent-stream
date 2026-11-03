@@ -22,17 +22,19 @@
 <meta property="og:image:height" content="630">
 <meta property="og:locale" content="de_DE">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="style.css?v=22">
-<link rel="stylesheet" href="savanna.css?v=22">
+<link rel="stylesheet" href="style.css?v=23">
+<link rel="stylesheet" href="savanna.css?v=23">
+<link rel="stylesheet" href="karten.css?v=23">
 <!-- Theme vor dem ersten Rendern setzen, damit nichts flackert -->
-<script src="theme.js?v=22"></script>
-<script src="config.js?v=22"></script>
-<script src="herd-core.js?v=22"></script>
-<script src="app.js?v=22" defer></script>
-<script src="extras.js?v=22" defer></script>
-<script src="savanna.js?v=22" defer></script>
-<script src="raetsel.js?v=22" defer></script>
-<script src="partner.js?v=22" defer></script>
+<script src="theme.js?v=23"></script>
+<script src="config.js?v=23"></script>
+<script src="herd-core.js?v=23"></script>
+<script src="app.js?v=23" defer></script>
+<script src="extras.js?v=23" defer></script>
+<script src="savanna.js?v=23" defer></script>
+<script src="raetsel.js?v=23" defer></script>
+<script src="partner.js?v=23" defer></script>
+<script src="karten.js?v=23" defer></script>
 </head>
 <body>
 
@@ -99,6 +101,7 @@
   <nav class="tabs" id="tabs" aria-label="Bereiche">
     <a href="#dashboard"  data-tab="dashboard"><span class="tab-icon">📊</span><span class="tab-label">Dashboard</span><span class="tab-live" id="tab-live" hidden></span></a>
     <a href="#herd"       data-tab="herd"><span class="tab-icon">🦌</span><span class="tab-label">Die Herde</span></a>
+    <a href="#karten"     data-tab="karten"><span class="tab-icon">🃏</span><span class="tab-label">Herden-Karten</span></a>
     <a href="#play"       data-tab="play"><span class="tab-icon">🎯</span><span class="tab-label">Mitmachen</span></a>
     <a href="#clips"      data-tab="clips"><span class="tab-icon">🎬</span><span class="tab-label">Clips</span></a>
     <a href="#about"      data-tab="about"><span class="tab-icon">🌾</span><span class="tab-label">Über mich</span></a>
@@ -218,6 +221,20 @@
 
     <h2 class="sub-title">🏛️ Ruhmeshalle</h2>
     <div class="card hall" id="hall"></div>
+  </section>
+
+  <!-- ── Herden-Karten (Sammelkarten, karten.js) ──────────────────────── -->
+  <section id="karten" class="section tab-panel">
+    <h1 class="section-title"><span>🃏</span> Herden-Karten</h1>
+    <div class="kt-wrap">
+      <div class="kt-msg" id="kt-msg" role="status" hidden></div>
+      <div class="card" id="kt-head"></div>
+      <div class="card" id="kt-account"></div>
+      <nav class="kt-nav" id="kt-nav" aria-label="Kartenspiel"></nav>
+      <div class="card" id="kt-view"></div>
+    </div>
+    <div class="kt-overlay" id="kt-pack" hidden></div>
+    <div class="kt-overlay" id="kt-card-modal" hidden></div>
   </section>
 
 
@@ -452,7 +469,7 @@
 <div class="consent" id="consent" hidden>
   <div class="consent-box card">
     <h3>🌾 Kurz bevor's losgeht</h3>
-    <p>Für Live-Status, Clips und Emotes lädt diese Seite Inhalte von <b>Twitch</b> und <b>Google</b>. Dabei wird deine IP-Adresse an diese Anbieter übertragen. Es werden keine Analyse- oder Werbe-Cookies gesetzt.</p>
+    <p>Für Live-Status, Clips, Emotes und die Herden-Karten lädt diese Seite Inhalte von <b>Twitch</b>, <b>Google</b> und <b>Supabase</b>. Dabei wird deine IP-Adresse an diese Anbieter übertragen. Es werden keine Analyse- oder Werbe-Cookies gesetzt.</p>
     <div class="consent-buttons">
       <button class="btn btn-primary" id="consent-accept" type="button">Inhalte laden</button>
       <button class="btn btn-ghost" id="consent-reject" type="button">Nur Grundseite</button>
@@ -507,6 +524,7 @@
     <ul>
       <li><b>Google Apps Script</b> (Google LLC, USA): liefert Live-Status, Statistiken, Clips und Highscores als Datenpaket.</li>
       <li><b>Twitch</b> (Twitch Interactive, Inc., USA): Profilbild, Clip-Vorschaubilder, Emotes und Spiele-Cover.</li>
+      <li><b>Supabase</b> (Supabase Inc., Server in Frankfurt): Alben, Ranglisten und Chancen der Herden-Karten (siehe Abschnitt 9).</li>
     </ul>
     <p>Der Twitch-Player, der Chat und Clip-Videos werden zusätzlich erst geladen, wenn du sie einzeln anklickst. Twitch kann dabei eigene Cookies setzen.</p>
     <p><b>Rechtsgrundlage:</b> Art. 6 Abs. 1 lit. a DSGVO (Einwilligung). Du kannst sie jederzeit über „Einwilligung ändern“ unten auf der Seite widerrufen.</p>
@@ -528,7 +546,12 @@
     <h3>8. Sammelspiel (freiwillig, eigene Seite)</h3>
     <p>Das Sammelspiel läuft auf einer eigenen Seite. Wer sich dort freiwillig mit Twitch anmeldet, erscheint mit Twitch-Name und Profilbild in der <b>öffentlichen Rangliste des Spiels</b>. Diese Rangliste enthält außerdem Spielstand (z. B. Phase, Sterne, Legenden-Punkte, Titel), die im Spiel gesammelte Zuschauzeit und die Stream-Serie und ist öffentlich abrufbar. Diese Seite hier zeigt davon nur Name, Punkte und Phase der besten zehn. Gespeichert werden die Spieldaten bei Supabase (Supabase Inc., Server in Frankfurt). <b>Rechtsgrundlage:</b> Art. 6 Abs. 1 lit. b DSGVO (Teilnahme am Spiel). Du kannst dein Spielkonto jederzeit löschen lassen (Kontakt siehe Impressum).</p>
 
-    <h3>9. Deine Rechte</h3>
+    <h3>9. Herden-Karten (Sammelkarten)</h3>
+    <p>Ab dem 1. Januar 2027 wird während eines Livestreams alle 5 Minuten abgefragt, welche angemeldeten Twitch-Nutzer im Chat sind. Gespeichert werden Twitch-ID, Twitch-Name und die seitdem gesammelte Zuschauzeit (gesamt und in der laufenden Woche). Daraus ergibt sich deine Gazellen-Stufe, die deine Chancen auf seltene Karten verbessert. <b>Solange du selbst keine Karten hast, erscheinst du nirgends öffentlich.</b></p>
+    <p>Sobald du mitmachst – also Packs abholst, über Kanalpunkte einlöst oder dich hier mit Twitch anmeldest – werden außerdem deine Karten, geöffneten Packs, Tauschangebote und Einstellungen gespeichert. Dein Album (Twitch-Name und Karten) ist dann öffentlich einsehbar und du erscheinst in den Karten-Ranglisten. Mit „Album verstecken“ (oder <code>!karten aus</code> im Chat) blendest du beides jederzeit aus. Beim Login mit Twitch übermittelt Twitch deine Twitch-ID, deinen Namen, dein Profilbild und deine E-Mail-Adresse an das Anmeldesystem; im Kartenspiel genutzt werden nur ID und Name. Die Anmeldung wird im <code>localStorage</code> deines Browsers gespeichert, bis du dich abmeldest.</p>
+    <p>Alle Daten liegen bei Supabase (Supabase Inc., Server in Frankfurt), wie beim Sammelspiel. <b>Rechtsgrundlage:</b> Art. 6 Abs. 1 lit. f DSGVO für die Zuschauzeit (berechtigtes Interesse an einer Community-Funktion), Art. 6 Abs. 1 lit. b DSGVO für die Teilnahme am Spiel. <b>Widerspruch / Löschung:</b> kurze Nachricht genügt (Kontakt siehe Impressum).</p>
+
+    <h3>10. Deine Rechte</h3>
     <p>Du hast das Recht auf Auskunft, Berichtigung, Löschung und Einschränkung der Verarbeitung sowie ein Beschwerderecht bei der zuständigen Datenschutzaufsichtsbehörde.</p>
   </div>
 </div>

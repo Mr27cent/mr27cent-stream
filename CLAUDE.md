@@ -15,8 +15,15 @@
   (Rangliste, Savanne, Ruhmeshalle, Overlay). Zuschauzeit aller wird trotzdem gespeichert.
 - **Sammelspiel** (Idle-Game): Rangliste kommt per Supabase-RPC `get_leaderboard`
   (Projekt `pgqpgvtscyxpghspnhdw`, Frankfurt). Datenschutz-Abschnitt 8 erwähnt das.
-- **Aufbau Webseite:** Reiter dashboard / herd / play / clips / about (alte Hash-Links in `MOVED`
+- **Aufbau Webseite:** Reiter dashboard / herd / karten / play / clips / about (alte Hash-Links in `MOVED`
   in `app.js` umgeleitet). Texte & Links zentral in `stream/config.js`. Media Kit unter `#partner`.
+- **Herden-Karten** (Sammelkarten, Start 01.01.2027): Reiter `#karten` = `stream/karten.js` + `karten.css`,
+  Direktlink `#karten/@name`. Alles läuft über Supabase-RPCs `cards_*` im selben Projekt wie das
+  Sammelspiel (Login mit Twitch über Supabase Auth, Redirect-URL `https://mr27cent.pages.dev/**`
+  ist eingetragen). Regeln stehen nur in der Datenbank. Zuschauzeit + Kanalpunkte: Edge Function
+  `cards-tick` (eigener Cron, `twitch-tick` des Sammelspiels bleibt unberührt). Konzept, Stand und
+  Migrationen liegen beim Nutzer unter `Desktop\Mal schauen` (`Kartenspiel-Konzept.md`).
+  Lurker-Schutz: Ein Album ist erst öffentlich, wenn die Person Karten hat; Datenschutz-Abschnitt 9.
 - **Hauptspiele:** Rocket League & Elden Ring.
 
 ## Offen

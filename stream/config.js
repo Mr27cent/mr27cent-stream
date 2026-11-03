@@ -210,8 +210,17 @@ window.STREAM_CONFIG = {
     { q: "Werde ich angezeigt, wenn ich nur lurke?", a: "Nein. Deine Gazelle bleibt anonym, bis du im Chat !herde schreibst. Mit !herde aus wirst du wieder unsichtbar." },
     { q: "Wie sehe ich meine Gazelle?",  a: "Schreib !gazelle im Chat – dann siehst du deine Stufe und die Zeit bis zum nächsten Aufstieg." },
     { q: "Wie funktioniert Hangman?",    a: "Im Stream wird ein Wort gesucht. Mit !e rätst du den Buchstaben E, mit !wort HAUS das ganze Wort. Jeder richtige Buchstabe bringt Punkte, wer das Wort löst, bekommt einen Bonus – je früher, desto mehr. Nach einem Fehler hast du 10 Sekunden Pause." },
-    { q: "Wie funktioniert das Sammelspiel?", a: "Melde dich auf der Spielseite mit Twitch an. Während du den Stream schaust, sammelst du automatisch Punkte, kaufst Gebäude und schaltest neue Phasen frei – für Sterne steigst du in der Rangliste auf." }
+    { q: "Wie funktioniert das Sammelspiel?", a: "Melde dich auf der Spielseite mit Twitch an. Während du den Stream schaust, sammelst du automatisch Punkte, kaufst Gebäude und schaltest neue Phasen frei – für Sterne steigst du in der Rangliste auf." },
+    { q: "Was sind die Herden-Karten?", a: "Ab dem 1. Januar 2027 sammelst du 150 Karten in 6 Seltenheiten – jede auch als seltenes Shiny. Zum Start gibt es 3 Starter-Packs, jede Woche ein Gratis-Pack (Subs zwei) und Packs für Kanalpunkte. Je größer deine Gazelle, desto besser deine Chancen. Doppelte Karten kannst du tauschen." }
   ],
+
+  // Herden-Karten (#karten, karten.js): Supabase-Projekt des Kartenspiels.
+  // Der „publishable“ Schlüssel ist für den Browser gedacht – was erlaubt ist,
+  // entscheidet die Datenbank (Login mit Twitch über Supabase Auth).
+  cards: {
+    supabaseUrl: "https://pgqpgvtscyxpghspnhdw.supabase.co",
+    supabaseKey: "sb_publishable_oTKhGpPBjcy35AM_m_mm_A_-EKfpo_X"
+  },
 
   rules: [
     "Sei nett zueinander – Respekt geht vor.",

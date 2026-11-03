@@ -111,7 +111,8 @@
     milestones: "about", community: "about", emotes: "about" };
 
   function showTab() {
-    var id = (window.location.hash || "").slice(1);
+    // „#karten/@name“ → Reiter „karten“ (der Rest ist für das jeweilige Modul)
+    var id = (window.location.hash || "").slice(1).split("/")[0];
     var jumpTo = null;
     if (MOVED[id]) { jumpTo = $(id); id = MOVED[id]; }
     var panel = id && document.querySelector('.tab-panel#' + CSS.escape(id));
