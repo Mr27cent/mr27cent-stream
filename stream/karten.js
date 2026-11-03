@@ -16,7 +16,8 @@
   var SESSION_KEY = "cards_session_v1";
   var RARITY_NAMES = { C: "Common", U: "Uncommon", R: "Rare", E: "Epic", L: "Legendary", M: "Mythic" };
   var RARITY_ORDER = ["C", "U", "R", "E", "L", "M"];
-  var SOURCE_NAMES = { starter: "Starter-Pack", weekly: "Gratis-Pack", sub: "Sub-Pack", points: "Kanalpunkte-Pack", admin: "Geschenk-Pack" };
+  var SOURCE_NAMES = { starter: "Starter-Pack", weekly: "Gratis-Pack", sub: "Sub-Pack", points: "Kanalpunkte-Pack",
+    admin: "Geschenk-Pack", watch: "Zuschau-Pack" };
 
   var REASONS = {
     noch_nicht_gestartet: "Das Kartenspiel startet am 1. Januar 2027 – bis dahin ist alles noch gesperrt.",
@@ -278,7 +279,9 @@
         + '<span class="kt-cd-value">noch ' + d + " Tage, " + h + " Std.</span></div>");
     }
     parts.push('<p class="kt-intro">' + info.total + " Karten in 6 Seltenheiten – jede gibt es auch als seltenes <b>Shiny</b>. "
-      + "Packs gibt es zum Start (3 Starter-Packs), jede Woche gratis und für Kanalpunkte. "
+      + "Packs gibt es zum Start (3 Starter-Packs), jede Woche gratis"
+      + (info.watch_pack_minutes ? ", automatisch alle " + fmtNum(info.watch_pack_minutes / 60) + " Stunden Zuschauzeit" : "")
+      + " und für Kanalpunkte. "
       + "Je größer deine <a href=\"#herd\">Gazelle</a>, desto besser deine Chancen auf seltene Karten."
       + (info.collectors ? " Schon <b>" + fmtNum(info.collectors) + "</b> Sammler dabei." : "") + "</p>");
     box.innerHTML = parts.join("");
@@ -314,6 +317,7 @@
       + '<div class="kt-me-stats">'
       + "<span><b>" + hours(m.minutes) + " h</b> Zuschauzeit seit Start · " + next + "</span>"
       + "<span>Diese Woche: <b>" + m.week_minutes + " / " + m.weekly_min_minutes + " min</b>" + (weekOk ? " ✓" : "") + "</span>"
+      + (m.next_watch_pack ? "<span>Nächstes Zuschau-Pack in <b>" + m.next_watch_pack + " min</b></span>" : "")
       + "<span><b>" + m.collected + " / " + m.total + "</b> Karten · <b>" + m.shinies + "</b> Shinys</span></div>"
       + (m.open ? '<div class="kt-actions">' + btns.join("") + "</div>"
         : '<p class="kt-note">🔒 Das Spiel startet am 1. Januar 2027. Deine Zuschauzeit für den Gazellen-Bonus zählt ab dann.</p>')
