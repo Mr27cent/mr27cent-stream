@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="robots" content="noindex">
+<title>Herden-Karten – OBS-Overlay</title>
+<!--
+  OBS-Browserquelle für die Herden-Karten: zeigt groß an, wenn jemand eine
+  Legendary, Mythic oder ein Shiny zieht (Karte fliegt verdeckt ein, dreht sich um).
+  Wer sein Album versteckt hat, erscheint als „Ein Herdenmitglied“.
+  Hintergrund ist durchsichtig, zwischen den Meldungen ist nichts zu sehen.
+  Adresse:  …/karten-overlay.html
+  Optionen: ?demo=1     Beispiel-Meldungen zum Einrichten (wiederholen sich)
+            ?sound=0    ohne Klänge (Lautstärke sonst in OBS regeln)
+  Empfohlene Größe in OBS: 1920 × 1080. Häkchen „Audio über OBS steuern“ setzen.
+-->
+<link rel="stylesheet" href="karten.css?v=27">
+<link rel="stylesheet" href="karten-overlay.css?v=27">
+<script src="config.js?v=27"></script>
+<script src="herd-core.js?v=27"></script>
+<script src="karten-sound.js?v=27" defer></script>
+<script src="karten-overlay.js?v=27" defer></script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="sym-gazelle" viewBox="0 0 100 90">
+      <ellipse cx="44" cy="46" rx="25" ry="10" fill="currentColor"/>
+      <path d="M57 44 L66 40 L76 21 L69 18 Z" fill="currentColor"/>
+      <ellipse cx="77" cy="23" rx="10" ry="4.2" transform="rotate(28 77 23)" fill="currentColor"/>
+      <ellipse cx="68" cy="17" rx="4" ry="1.8" transform="rotate(-35 68 17)" fill="currentColor"/>
+      <path d="M71 17 C69 9 65 4 60 1 M74 17 C73 9 70 5 66 2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M27 52 L24 70 L26 87 M34 54 L35 87 M58 53 L61 70 L59 87 M64 50 L68 87"
+            fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M20 42 L15 50" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+    </symbol>
+  </defs>
+</svg>
+<div class="ko-stage" id="ko-stage" aria-live="polite"></div>
+</body>
+</html>

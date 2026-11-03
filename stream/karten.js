@@ -124,7 +124,7 @@
   function logout() {
     var s = state.session;
     saveSession(null);
-    state.me = null; state.myAlbum = null; state.trades = null;
+    state.me = null; state.myAlbum = null; state.trades = null; state.newIds = null; state.seenKeys = null;
     if (s) {
       fetch(C.supabaseUrl + "/auth/v1/logout", {
         method: "POST",
@@ -191,7 +191,30 @@
       state.me = r[0];
       state.myAlbum = r[1] && r[1].ok ? r[1] : null;
       if (state.oddsStage == null && state.me && state.me.stage) state.oddsStage = state.me.stage;
+      markNew();
     });
+  }
+
+  // „Neu seit letztem Besuch“: der Browser merkt sich, welche Karten (normal / Shiny)
+  // man zuletzt hatte. Die Markierung bleibt für diesen Besuch stehen.
+  function ownedKeys(album) {
+    var keys = {};
+    album.cards.forEach(function (c) {
+      if (c.qty > 0) keys[c.id] = 1;
+      if (c.shiny_qty > 0) keys[c.id + "*"] = 1;
+    });
+    return keys;
+  }
+  function markNew() {
+    if (!state.myAlbum || !state.me) return;
+    var storeKey = "cards_seen_v1:" + state.me.login, now = ownedKeys(state.myAlbum), before = null;
+    if (state.seenKeys) before = state.seenKeys;
+    else { try { before = JSON.parse(store(storeKey) || "null"); } catch (e) { before = null; } }
+    state.newIds = state.newIds || {};
+    // Beim allerersten Besuch ist nichts „neu“ – sonst wäre alles markiert
+    if (before) Object.keys(now).forEach(function (k) { if (!before[k]) state.newIds[k.replace("*", "")] = 1; });
+    state.seenKeys = now;
+    store(storeKey, JSON.stringify(now));
   }
 
   function reloadMe() {
@@ -209,7 +232,8 @@
     var star = !opts.reveal && c.shiny_qty
       ? '<span class="kc-star" title="Shiny ×' + c.shiny_qty + '">★' + (c.shiny_qty > 1 ? c.shiny_qty : "") + "</span>" : "";
     var tag = opts.button ? "button" : "div";
-    return "<" + tag + ' class="' + cls + '"' + (opts.button ? ' type="button" data-card="' + esc(c.id) + '"' : "")
+    return "<" + tag + ' class="' + cls + '"'
+      + (opts.button ? ' type="button" data-card="' + esc(c.id) + '" data-album="' + (opts.album || "mine") + '"' : "")
       + ' aria-label="' + esc("#" + pad(c.number) + " " + (owned ? c.name : "unbekannt") + ", " + RARITY_NAMES[c.rarity] + (shiny ? ", Shiny" : "")) + '">'
       + '<span class="kc-no">#' + pad(c.number) + "</span>"
       + '<span class="kc-art">' + (img ? '<img src="' + esc(img) + '" alt="" loading="lazy">'
@@ -230,8 +254,10 @@
     return { have: have, shinies: shinies, dupes: dupes, total: album.cards.length };
   }
 
-  function filterChips() {
-    var opts = [["all", "Alle"]].concat(RARITY_ORDER.map(function (r) { return [r, RARITY_NAMES[r]]; }))
+  function filterChips(own) {
+    var newCount = own && state.newIds ? Object.keys(state.newIds).length : 0;
+    var opts = [["all", "Alle"]].concat(newCount ? [["new", "✨ Neu (" + newCount + ")"]] : [])
+      .concat(RARITY_ORDER.map(function (r) { return [r, RARITY_NAMES[r]]; }))
       .concat([["missing", "Fehlend"], ["dupes", "Doppelt"], ["shiny", "Shiny"]]);
     return '<div class="kt-chips" role="group" aria-label="Filter">' + opts.map(function (o) {
       return '<button type="button" class="kt-chip' + (o[0].length === 1 ? " r-" + o[0] : "")
@@ -239,10 +265,12 @@
     }).join("") + "</div>";
   }
 
-  function filtered(cards) {
+  function filtered(cards, own) {
     var f = state.filter;
+    if (f === "new" && !own) f = "all";
     return cards.filter(function (c) {
       if (f === "all") return true;
+      if (f === "new") return !!(state.newIds && state.newIds[c.id]);
       if (f === "missing") return c.qty + c.shiny_qty === 0;
       if (f === "dupes") return c.qty > 1;
       if (f === "shiny") return c.shiny_qty > 0;
@@ -252,15 +280,19 @@
 
   function albumGrid(album, own) {
     var s = stats(album);
-    var list = filtered(album.cards);
+    var list = filtered(album.cards, own);
+    var isNew = function (c) { return own && state.newIds && state.newIds[c.id]; };
     return '<div class="kt-album-head">'
       + '<div class="kt-progress"><b>' + s.have + "</b> / " + s.total + " Karten"
       + '<span class="kt-bar"><span style="width:' + (100 * s.have / s.total).toFixed(1) + '%"></span></span></div>'
       + '<span class="kt-pill">★ ' + s.shinies + " Shinys</span>"
       + '<span class="kt-pill">⇄ ' + s.dupes + " doppelt</span>"
-      + "</div>" + filterChips()
+      + "</div>" + filterChips(own)
       + (list.length
-        ? '<div class="kt-grid">' + list.map(function (c) { return cardTile(c, { button: own }); }).join("") + "</div>"
+        ? '<div class="kt-grid">' + list.map(function (c) {
+          // Alle besessenen Karten lassen sich groß ansehen – im eigenen und in fremden Alben
+          return cardTile(c, { button: c.qty + c.shiny_qty > 0, album: own ? "mine" : "other", isNew: isNew(c) });
+        }).join("") + "</div>"
         : '<p class="empty">Keine Karten für diesen Filter.</p>');
   }
 
@@ -346,8 +378,9 @@
     if (v === "album") {
       if (!state.session) { box.innerHTML = '<p class="empty">Melde dich an, um dein Album zu sehen.</p>'; return; }
       if (!state.myAlbum) { box.innerHTML = '<p class="empty">Lade dein Album …</p>'; return; }
-      box.innerHTML = albumGrid(state.myAlbum, true)
-        + '<p class="kt-hint">Tippe auf eine Karte, um bei Karten mit Shiny-Version auszuwählen, welche im Album gezeigt wird.</p>';
+      box.innerHTML = '<div class="kt-album-actions"><button class="btn btn-ghost" type="button" data-act="share">📤 Album teilen</button></div>'
+        + albumGrid(state.myAlbum, true)
+        + '<p class="kt-hint">Tippe auf eine Karte für die Großansicht. Hast du sie auch als Shiny, wählst du dort, welche Version im Album gezeigt wird.</p>';
       return;
     }
     if (v === "browse") return renderBrowse(box);
@@ -444,6 +477,7 @@
 
     box.innerHTML = '<p class="kt-hint">Getauscht wird nur <b>doppelt</b> vorhandene Karten der <b>gleichen Seltenheit</b>, Shinys nicht. '
       + "Heute: <b>" + m.trades_today + " / " + m.trades_per_day + "</b> Tausche. Angebote über die Webseite gelten 48 Stunden.</p>"
+      + suggestionsHtml()
       + '<div class="kt-trade-new card-inner"><h3>Neues Angebot</h3>'
       + '<label>Tauschpartner<input id="kt-partner" type="search" list="kt-partner-names" placeholder="Twitch-Name" autocomplete="off" value="'
       + esc(state.tradePartner ? state.tradePartner.login : "") + '"></label><datalist id="kt-partner-names"></datalist>'
@@ -484,10 +518,34 @@
   }
 
   function loadTrades() {
-    return Promise.all([rpc("cards_web_trades", {}, true), loadMe()]).then(function (r) {
+    return Promise.all([rpc("cards_web_trades", {}, true), rpc("cards_web_trade_suggestions", {}, true), loadMe()]).then(function (r) {
       state.trades = r[0] || [];
+      state.suggest = r[1] || [];
       render();
     }).catch(handleError);
+  }
+
+  // 💡 Vorschläge: wer hat doppelt, was mir fehlt – und braucht, was ich doppelt habe
+  function suggestionsHtml() {
+    var list = state.suggest || [];
+    if (!list.length) {
+      return '<div class="kt-suggest card-inner"><h3>💡 Tauschvorschläge</h3><p class="empty">Gerade keine passenden Tausche. '
+        + "Sobald jemand doppelt hat, was dir fehlt (und umgekehrt), erscheint das hier.</p></div>";
+    }
+    return '<div class="kt-suggest card-inner"><h3>💡 Tauschvorschläge</h3>'
+      + '<p class="kt-hint">Beide bekommen eine Karte, die ihnen noch fehlt.</p><ul class="kt-trades">'
+      + list.map(function (p) {
+        return '<li class="kt-trade"><div class="kt-trade-who"><a href="#karten/@' + esc(p.login) + '">' + esc(p.partner) + "</a>"
+          + (p.count > p.swaps.length ? ' <span class="kt-pill">' + p.count + " Möglichkeiten</span>" : "") + "</div>"
+          + p.swaps.map(function (s) {
+            return '<div class="kt-trade-cards">'
+              + '<span class="kt-mini r-' + s.give.rarity + '">Du gibst #' + pad(s.give.number) + " " + esc(s.give.name) + "</span>"
+              + '<span aria-hidden="true">⇄</span>'
+              + '<span class="kt-mini r-' + s.get.rarity + '">Du bekommst #' + pad(s.get.number) + " " + esc(s.get.name) + "</span>"
+              + '<button class="btn btn-ghost kt-suggest-btn" type="button" data-suggest="' + esc(p.login + "|" + s.give.id + "|" + s.get.id) + '">Angebot schicken</button>'
+              + "</div>";
+          }).join("") + "</li>";
+      }).join("") + "</ul></div>";
   }
 
   function renderRanks(box) {
@@ -544,6 +602,16 @@
   // Wischen mit → Übersicht aller 5 Karten. „Überspringen“ geht direkt zur Übersicht.
   var pack = null;   // { res, step: "pack" | "cards" | "summary", idx, flip, revealed }
   var REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // Klänge & Vibration aus karten-sound.js (fehlt die Datei, bleibt es still)
+  var SND = window.CardsSound || { play: function () {}, buzz: function () {}, enabled: function () { return false; }, setEnabled: function () {} };
+
+  function revealSound(c) {
+    var r = RARITY_ORDER.indexOf(c.rarity);
+    SND.play(r >= 5 ? "mythic" : r === 4 ? "legendary" : r === 3 ? "epic" : r === 2 ? "rare" : "common");
+    if (c.shiny) setTimeout(function () { SND.play("shiny"); }, 120);
+    if (r >= 4 || c.shiny) SND.buzz([60, 40, 140]);
+    else if (r === 3) SND.buzz(45);
+  }
 
   // Kartenrücken: die Universumsgazelle (ausgewachsene Herden-Gazelle, config.js → herd)
   function backArt() {
@@ -605,13 +673,18 @@
         ? '<button class="btn btn-primary" type="button" data-act="open-next">Nächstes Pack öffnen (' + state.me.packs.length + ")</button>" : "")
         + '<button class="btn btn-ghost" type="button" data-act="pack-close">Schließen</button>';
     }
+    var snd = SND.enabled();
     $("kt-pack").innerHTML = '<div class="kt-pack-box kt-open-box" role="dialog" aria-modal="true" aria-label="' + title + ' öffnen">'
+      + '<button class="kt-snd" type="button" data-act="sound" aria-pressed="' + snd + '" title="Klänge an/aus">' + (snd ? "🔊" : "🔇") + "</button>"
       + "<h2>" + title + "</h2>" + body
       + '<p class="kt-step-hint" id="kt-step-hint">' + hint + "</p>"
       + '<div class="kt-pack-btns">' + foot + "</div></div>";
 
     if (pack.step === "pack") bindFoil($("kt-foil"));
-    else if (pack.step === "cards") bindTop($("kt-top"), pack.idx === cards.length - 1);
+    else if (pack.step === "cards") {
+      bindTop($("kt-top"), pack.idx === cards.length - 1);
+      if (pack.idx === cards.length - 1) SND.play("tension");
+    }
     var focus = $("kt-foil") || $("kt-top") || $("kt-pack").querySelector("[data-act]");
     if (focus) focus.focus({ preventScroll: true });
   }
@@ -645,6 +718,8 @@
       if (done) return;
       done = true;
       foil.classList.add("torn");
+      SND.play("tear");
+      SND.buzz(25);
       setTimeout(function () { pack.step = "cards"; drawPack(); }, 850);
     }
     bindDrag(foil, function (dx) {
@@ -655,6 +730,7 @@
   }
 
   function nextCard(el, dir) {
+    SND.play("swipe");
     el.style.transition = "transform .38s ease-in, opacity .38s ease-in";
     el.style.transform = "translateX(" + (dir * Math.max(window.innerWidth, 600)) + "px) rotate(" + (dir * 28) + "deg)";
     el.style.opacity = "0";
@@ -702,7 +778,13 @@
     var dist = last ? Math.min(320, window.innerWidth * 0.6) : 150;
     function finish(ms) {
       busyFlip = true;
-      animateFlip(el, 1, ms, function () { busyFlip = false; reveal(el, last); });
+      // „Fwip“ genau, wenn die Karte kippt (Mitte der Animation)
+      setTimeout(function () { SND.play("flip"); }, Math.max(0, ms / 2 - 80));
+      animateFlip(el, 1, ms, function () {
+        busyFlip = false;
+        reveal(el, last);
+        revealSound(pack.res.cards[pack.idx]);
+      });
     }
     function advance(dir) {
       if (last) { pack.step = "summary"; drawPack(); } else nextCard(el, dir);
@@ -748,32 +830,170 @@
     }));
   }
 
-  // ── Album-Karte antippen: Normal/Shiny wählen ──────────────────────────────
-  function showCard(id) {
-    var c = state.myAlbum && state.myAlbum.cards.filter(function (x) { return x.id === id; })[0];
+  // ── Karte antippen: Großansicht (neigt sich mit Maus/Handy, Lichtreflex) ───
+  // Im eigenen Album zusätzlich: Normal/Shiny für die Anzeige wählen
+  var tiltOff = null;
+
+  function bindTilt(wrap) {
+    var inner = wrap.querySelector(".kt-tilt-in");
+    function set(px, py) {   // px/py 0…1, Mitte = 0.5
+      inner.style.transform = "rotateX(" + ((0.5 - py) * 18).toFixed(2) + "deg) rotateY(" + ((px - 0.5) * 22).toFixed(2) + "deg)";
+      inner.style.setProperty("--gx", (px * 100).toFixed(1) + "%");
+      inner.style.setProperty("--gy", (py * 100).toFixed(1) + "%");
+    }
+    function move(e) {
+      var r = wrap.getBoundingClientRect();
+      set(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)));
+    }
+    function leave() { inner.style.transform = ""; inner.style.setProperty("--gx", "50%"); inner.style.setProperty("--gy", "30%"); }
+    // Handy: Neigung (wo der Browser sie ohne Nachfrage liefert, z. B. Android)
+    function orient(e) {
+      if (e.beta == null || e.gamma == null) return;
+      set(Math.min(1, Math.max(0, 0.5 + e.gamma / 50)), Math.min(1, Math.max(0, 0.5 + (e.beta - 40) / 50)));
+    }
+    wrap.addEventListener("pointermove", move);
+    wrap.addEventListener("pointerleave", leave);
+    if (!REDUCED) window.addEventListener("deviceorientation", orient);
+    leave();
+    return function () { window.removeEventListener("deviceorientation", orient); };
+  }
+
+  function closeCard() {
+    $("kt-card-modal").hidden = true;
+    if (tiltOff) { tiltOff(); tiltOff = null; }
+  }
+
+  function showCard(id, which) {
+    var mine = which !== "other";
+    var album = mine ? state.myAlbum : state.other;
+    var c = album && album.cards && album.cards.filter(function (x) { return x.id === id; })[0];
     if (!c || c.qty + c.shiny_qty === 0) return;
     var box = $("kt-card-modal");
-    var both = c.qty > 0 && c.shiny_qty > 0;
+    var both = mine && c.qty > 0 && c.shiny_qty > 0;
     box.innerHTML = '<div class="kt-pack-box kt-card-box" role="dialog" aria-modal="true" aria-label="Karte">'
-      + '<div class="kt-card-big">' + cardTile(c) + "</div>"
-      + "<p>Normal: <b>×" + c.qty + "</b> · Shiny: <b>×" + c.shiny_qty + "</b>"
-      + (c.qty > 1 ? " · tauschbar: " + (c.qty - 1) : "") + "</p>"
+      + '<div class="kt-tilt' + (c.show_shiny ? " is-shiny" : "") + '"><div class="kt-tilt-in">' + cardTile(c)
+      + '<span class="kt-glare" aria-hidden="true"></span></div></div>'
+      + "<p>" + (mine ? "" : esc(album.name) + " hat · ") + "Normal: <b>×" + c.qty + "</b> · Shiny: <b>×" + c.shiny_qty + "</b>"
+      + (mine && c.qty > 1 ? " · tauschbar: " + (c.qty - 1) : "") + "</p>"
       + (both ? '<div class="kt-pack-btns"><button class="btn ' + (c.show_shiny ? "btn-ghost" : "btn-primary") + '" type="button" data-show="normal">Normal zeigen</button>'
         + '<button class="btn ' + (c.show_shiny ? "btn-primary" : "btn-ghost") + '" type="button" data-show="shiny">✨ Shiny zeigen</button></div>' : "")
       + '<div class="kt-pack-btns"><button class="btn btn-ghost" type="button" data-act="card-close">Schließen</button></div></div>';
     box.hidden = false;
+    if (tiltOff) tiltOff();
+    tiltOff = bindTilt(box.querySelector(".kt-tilt"));
     box.querySelectorAll("[data-show]").forEach(function (b) {
       b.onclick = function () {
         var shiny = b.getAttribute("data-show") === "shiny";
         busy(b, rpc("cards_web_set_display", { p_card: id, p_shiny: shiny }, true).then(function (r) {
           if (!r.ok) return flash(reasonText(r), "error");
           c.show_shiny = shiny;
-          box.hidden = true;
+          closeCard();
           renderView();
         }));
       };
     });
     box.querySelector("[data-act=card-close]").focus();
+  }
+
+  // ── Album teilen: Bild 1080×1350 (Instagram-Hochformat) direkt im Browser ──
+  function loadImg(src) {
+    return new Promise(function (ok) {
+      if (!src) return ok(null);
+      var im = new Image();
+      im.onload = function () { ok(im); };
+      im.onerror = function () { ok(null); };
+      im.src = src;
+    });
+  }
+
+  function roundRect(g, x, y, w, h, r) {
+    g.beginPath();
+    g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+  }
+
+  function albumImage() {
+    var a = state.myAlbum, m = state.me;
+    var look = U.lookFor && CFG.herd ? U.lookFor(CFG.herd.maxHours || 1000) : null;
+    var fonts = document.fonts && document.fonts.load ? Promise.all([
+      document.fonts.load('80px "Lilita One"'), document.fonts.load('700 40px "Nunito"')]).catch(function () {}) : Promise.resolve();
+    return Promise.all([loadImg(look && safeImg(look.img)), fonts]).then(function (r) {
+      var gaz = r[0], W = 1080, H = 1350, c = document.createElement("canvas");
+      c.width = W; c.height = H;
+      var g = c.getContext("2d");
+      var head = '"Lilita One", system-ui, sans-serif', body = '"Nunito", system-ui, sans-serif';
+      // Sternenhimmel
+      var bg = g.createRadialGradient(W / 2, H * 0.38, 50, W / 2, H * 0.45, H * 0.8);
+      bg.addColorStop(0, "#4a2a7a"); bg.addColorStop(0.55, "#24133f"); bg.addColorStop(1, "#0d0719");
+      g.fillStyle = bg; g.fillRect(0, 0, W, H);
+      for (var i = 0; i < 160; i++) {
+        var sx = (i * 7919) % W, sy = (i * 104729) % H, sr = (i % 7 === 0) ? 2.4 : 1.2;
+        g.fillStyle = "rgba(255,255,255," + (0.35 + (i % 5) / 8) + ")";
+        g.beginPath(); g.arc(sx, sy, sr, 0, Math.PI * 2); g.fill();
+      }
+      // Goldrahmen
+      g.strokeStyle = "#e7b94c"; g.lineWidth = 10; roundRect(g, 30, 30, W - 60, H - 60, 40); g.stroke();
+      g.textAlign = "center"; g.fillStyle = "#ffe39a";
+      g.font = "88px " + head; g.fillText("Herden-Karten", W / 2, 150);
+      g.fillStyle = "#ffffff"; g.font = "700 46px " + body; g.fillText("Album von " + a.name, W / 2, 220);
+      // Gazelle
+      if (gaz) {
+        var gh = 470, gw = gaz.width / gaz.height * gh;
+        g.shadowColor = "rgba(255,220,140,.55)"; g.shadowBlur = 40;
+        g.drawImage(gaz, (W - gw) / 2, 255, gw, gh);
+        g.shadowBlur = 0;
+      }
+      // Fortschritt
+      var s = stats(a);
+      g.fillStyle = "#ffffff"; g.font = "120px " + head;
+      g.fillText(s.have + " / " + s.total, W / 2, 860);
+      var bx = 140, bw = W - 280, by = 890;
+      g.fillStyle = "rgba(255,255,255,.15)"; roundRect(g, bx, by, bw, 34, 17); g.fill();
+      var grad = g.createLinearGradient(bx, 0, bx + bw, 0); grad.addColorStop(0, "#b9c25a"); grad.addColorStop(1, "#f4c25a");
+      g.fillStyle = grad; roundRect(g, bx, by, Math.max(34, bw * s.have / s.total), 34, 17); g.fill();
+      // Seltenheiten
+      var colors = { C: "#a99f92", U: "#74c266", R: "#5ea8ef", E: "#b07ee8", L: "#f4c04a", M: "#ff6f88" };
+      var per = {};
+      RARITY_ORDER.forEach(function (k) { per[k] = [0, 0]; });
+      a.cards.forEach(function (x) { per[x.rarity][1]++; if (x.qty + x.shiny_qty > 0) per[x.rarity][0]++; });
+      RARITY_ORDER.forEach(function (k, n) {
+        var col = n % 3, row = Math.floor(n / 3), x0 = 95 + col * 310, cy = 1010 + row * 92;
+        g.fillStyle = colors[k]; g.beginPath(); g.arc(x0 + 12, cy - 11, 12, 0, Math.PI * 2); g.fill();
+        g.textAlign = "left"; g.font = "700 31px " + body; g.fillStyle = "#ffffff";
+        g.fillText(RARITY_NAMES[k] + " " + per[k][0] + "/" + per[k][1], x0 + 34, cy);
+      });
+      g.textAlign = "center"; g.fillStyle = "#ffe39a"; g.font = "700 40px " + body;
+      g.fillText("★ " + s.shinies + " Shinys  ·  Stufe " + m.stage + " · " + m.stage_name, W / 2, 1225);
+      g.fillStyle = "rgba(255,255,255,.75)"; g.font = "700 32px " + body;
+      g.fillText(location.host + "/#karten", W / 2, 1285);
+      return new Promise(function (ok) { c.toBlob(ok, "image/png"); });
+    });
+  }
+
+  function shareAlbum(btn) {
+    if (!state.myAlbum || !state.me) return;
+    busy(btn, albumImage().then(function (blob) {
+      if (!blob) return flash("Das Bild konnte nicht erstellt werden.", "error");
+      var name = "herden-karten-" + state.me.login + ".png";
+      var file = typeof File === "function" ? new File([blob], name, { type: "image/png" }) : null;
+      var url = URL.createObjectURL(blob);
+      var box = $("kt-card-modal");
+      var canShare = file && navigator.canShare && navigator.canShare({ files: [file] });
+      box.innerHTML = '<div class="kt-pack-box kt-card-box" role="dialog" aria-modal="true" aria-label="Album teilen">'
+        + "<h2>📤 Dein Album</h2>"
+        + '<img class="kt-share-img" src="' + url + '" alt="Bild deines Albums">'
+        + '<div class="kt-pack-btns">'
+        + (canShare ? '<button class="btn btn-primary" type="button" id="kt-share-now">Teilen</button>' : "")
+        + '<a class="btn ' + (canShare ? "btn-ghost" : "btn-primary") + '" href="' + url + '" download="' + esc(name) + '">Bild speichern</a>'
+        + '<button class="btn btn-ghost" type="button" data-act="card-close">Schließen</button></div></div>';
+      box.hidden = false;
+      if (canShare) {
+        $("kt-share-now").onclick = function () {
+          navigator.share({ files: [file], text: "Mein Herden-Karten-Album 🦌 " + location.origin + "/#karten/@" + state.me.login })
+            .catch(function () { /* abgebrochen */ });
+        };
+      }
+    }));
   }
 
   function busy(btn, p) {
@@ -793,7 +1013,16 @@
       return;
     }
     if (t.hasAttribute("data-filter")) { state.filter = t.getAttribute("data-filter"); renderView(); return; }
-    if (t.hasAttribute("data-card")) { showCard(t.getAttribute("data-card")); return; }
+    if (t.hasAttribute("data-card")) { showCard(t.getAttribute("data-card"), t.getAttribute("data-album")); return; }
+    if (t.hasAttribute("data-suggest")) {
+      var sp = t.getAttribute("data-suggest").split("|");
+      busy(t, rpc("cards_web_trade_offer", { p_to_login: sp[0], p_offer: sp[1], p_want: sp[2] }, true).then(function (r) {
+        if (!r.ok) return flash(reasonText(r), "error");
+        flash("Angebot an " + r.to + " geschickt. 🦌", "ok");
+        return loadTrades();
+      }));
+      return;
+    }
     if (t.hasAttribute("data-trade-with")) {
       var login = t.getAttribute("data-trade-with");
       state.view = "trade";
@@ -817,13 +1046,21 @@
     if (act === "open" || act === "open-next") {
       if (act === "open-next") $("kt-pack").hidden = true;
       openPack(t);
+    } else if (act === "share") {
+      shareAlbum(t);
+    } else if (act === "sound") {
+      var on = !SND.enabled();
+      SND.setEnabled(on);
+      t.textContent = on ? "🔊" : "🔇";
+      t.setAttribute("aria-pressed", String(on));
+      if (on) SND.play("common");
     } else if (act === "pack-skip") {
       pack.step = "summary";
       drawPack();
     } else if (act === "pack-close") {
       $("kt-pack").hidden = true;
     } else if (act === "card-close") {
-      $("kt-card-modal").hidden = true;
+      closeCard();
     } else if (act === "starter") {
       busy(t, rpc("cards_web_claim_starter", {}, true).then(function (r) {
         if (!r.ok) return flash(reasonText(r), "error");
@@ -893,7 +1130,8 @@
   $("karten").addEventListener("click", onClick);
   document.addEventListener("keydown", function (e) {
     if (e.key !== "Escape") return;
-    ["kt-pack", "kt-card-modal"].forEach(function (id) { $(id).hidden = true; });
+    $("kt-pack").hidden = true;
+    closeCard();
   });
   $("consent-accept").addEventListener("click", function () { setTimeout(route, 0); });
   window.addEventListener("hashchange", route);

@@ -24,6 +24,11 @@
   `cards-tick` (eigener Cron, `twitch-tick` des Sammelspiels bleibt unberührt). Konzept, Stand und
   Migrationen liegen beim Nutzer unter `Desktop\Mal schauen` (`Kartenspiel-Konzept.md`).
   Lurker-Schutz: Ein Album ist erst öffentlich, wenn die Person Karten hat; Datenschutz-Abschnitt 9.
+  Weitere Dateien: `karten-sound.js` (Klänge per Web Audio, eigene Dateien über `config.js → cards.sounds`),
+  OBS-Overlay `karten-overlay.html/.js/.css` (Legendary/Mythic/Shiny, RPC `cards_overlay_feed`, `?demo=1`).
+  Datenbank-Migrationen + Edge Function `cards-tick` liegen unter `supabase/` (nur Backup, Supabase-Projekt
+  `pgqpgvtscyxpghspnhdw`; Änderungen dort per Migration einspielen und hier ablegen).
+  Testphase: Tester `mr27cent` hat Testdaten – vor dem 01.01.2027 alle Karten/Packs/Zuschauzeit zurücksetzen.
 - **Hauptspiele:** Rocket League & Elden Ring.
 
 ## Offen
