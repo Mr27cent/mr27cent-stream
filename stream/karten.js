@@ -545,6 +545,14 @@
   var pack = null;   // { res, step: "pack" | "cards" | "summary", idx, flip, revealed }
   var REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  // Kartenrücken: die Universumsgazelle (ausgewachsene Herden-Gazelle, config.js → herd)
+  function backArt() {
+    var look = U.lookFor && CFG.herd ? U.lookFor(CFG.herd.maxHours || 1000) : null;
+    var src = look && safeImg(look.img);
+    return src ? '<img class="kt-back-img" src="' + esc(src) + '" alt="" draggable="false">'
+      : '<svg aria-hidden="true"><use href="#sym-gazelle"/></svg>';
+  }
+
   function showPack(res) {
     pack = { res: res, step: REDUCED ? "summary" : "pack", idx: 0, flip: 0, revealed: false };
     $("kt-pack").hidden = false;
@@ -555,7 +563,8 @@
     return cards.reduce(function (b, c) { return Math.max(b, RARITY_ORDER.indexOf(c.rarity) + (c.shiny ? 10 : 0)); }, 0);
   }
   function wowText(best) {
-    return best >= 10 ? "✨ SHINY! ✨" : best >= 5 ? "🔥 Was für ein Zug!" : best >= 4 ? "💜 Episch!" : "";
+    // best = Index in RARITY_ORDER (E = 3, L = 4, M = 5), +10 bei Shiny
+    return best >= 10 ? "✨ SHINY! ✨" : best >= 4 ? "🔥 Was für ein Zug!" : best >= 3 ? "💜 Episch!" : "";
   }
 
   function drawPack() {
@@ -564,7 +573,7 @@
     var body, hint = "", foot = "";
     if (pack.step === "pack") {
       body = '<div class="kt-foil" id="kt-foil" role="button" tabindex="0" aria-label="Pack aufreißen">'
-        + '<span class="kt-foil-top"></span><span class="kt-foil-body"><svg aria-hidden="true"><use href="#sym-gazelle"/></svg>'
+        + '<span class="kt-foil-top"></span><span class="kt-foil-body">' + backArt()
         + "<b>Herden-Karten</b><small>5 Karten · Serie 1</small></span></div>";
       hint = "Tippen oder wischen, um das Pack aufzureißen";
       foot = '<button class="btn btn-ghost" type="button" data-act="pack-skip">Überspringen</button>';
@@ -572,18 +581,20 @@
       var i = pack.idx, c = cards[i], last = i === cards.length - 1;
       var under = "";
       for (var k = Math.min(cards.length - 1 - i, 3); k >= 1; k--) {
-        under += '<div class="kt-stack-card" style="--k:' + k + '"><div class="kt-back"><svg aria-hidden="true"><use href="#sym-gazelle"/></svg></div></div>';
+        under += '<div class="kt-stack-card" style="--k:' + k + '"><div class="kt-back">' + backArt() + "</div></div>";
       }
-      var top = last
-        ? '<div class="kt-top kt-top-last r-' + c.rarity + (c.shiny ? " is-shiny" : "") + '" id="kt-top" tabindex="0" aria-label="Letzte Karte – langsam wischen zum Aufdecken">'
-          + '<div class="kt-face kt-back glow"><svg aria-hidden="true"><use href="#sym-gazelle"/></svg></div>'
-          + '<div class="kt-face kt-front">' + cardTile(c, { reveal: true, isNew: c["new"] }) + "</div></div>"
-        : '<div class="kt-top" id="kt-top" tabindex="0" aria-label="Nächste Karte">' + cardTile(c, { reveal: true, isNew: c["new"] }) + "</div>";
+      // Jede Karte liegt verdeckt oben; die 5. leuchtet schon in ihrer Seltenheit
+      var big = RARITY_ORDER.indexOf(c.rarity) >= 3 || c.shiny;
+      var top = '<div class="kt-top' + (last ? " kt-top-last" : "") + (big ? " big" : "") + " r-" + c.rarity + (c.shiny ? " is-shiny" : "")
+          + '" id="kt-top" tabindex="0" aria-label="Verdeckte Karte ' + (i + 1) + " von " + cards.length + ' – antippen zum Umdrehen">'
+          + '<div class="kt-face kt-back' + (last ? " glow" : "") + '">' + backArt() + "</div>"
+          + '<div class="kt-face kt-front">' + cardTile(c, { reveal: true, isNew: c["new"] }) + "</div></div>";
       body = '<div class="kt-stage">' + under + top + "</div>"
         + '<div class="kt-dots" aria-hidden="true">' + cards.map(function (x, n) {
           return "<span" + (n < i ? ' class="done"' : n === i ? ' class="on"' : "") + "></span>";
         }).join("") + "</div>";
-      hint = last ? "Die letzte Karte – <b>langsam</b> zur Seite wischen …" : "Wischen oder tippen für die nächste Karte (" + (i + 1) + "/" + cards.length + ")";
+      hint = last ? "Die letzte Karte – antippen oder <b>langsam</b> zur Seite wischen …"
+        : "Antippen zum Umdrehen (" + (i + 1) + "/" + cards.length + ")";
       foot = '<button class="btn btn-ghost" type="button" data-act="pack-skip">Überspringen</button>';
     } else {
       var best = bestOf(cards);
@@ -647,10 +658,10 @@
     el.style.transition = "transform .38s ease-in, opacity .38s ease-in";
     el.style.transform = "translateX(" + (dir * Math.max(window.innerWidth, 600)) + "px) rotate(" + (dir * 28) + "deg)";
     el.style.opacity = "0";
-    setTimeout(function () { pack.idx++; drawPack(); }, 330);
+    setTimeout(function () { pack.idx++; pack.flip = 0; pack.revealed = false; drawPack(); }, 330);
   }
 
-  // Letzte Karte: Drehwinkel folgt dem Finger (langsam), Rück-/Vorderseite tauschen bei 50 %
+  // Umdrehen: Drehwinkel folgt dem Finger, Rück-/Vorderseite tauschen bei 50 %
   function setFlip(el, p, dx) {
     var back = el.querySelector(".kt-back"), front = el.querySelector(".kt-front");
     back.style.transform = "rotateY(" + (p * 180) + "deg)";
@@ -665,58 +676,65 @@
     var from = pack.flip, t0 = null;
     function step(t) {
       if (t0 === null) t0 = t;
-      var k = Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - k, 3);
+      // sanft rein und raus: der Moment des Umdrehens (90°) liegt in der Mitte der Zeit
+      var k = Math.min(1, (t - t0) / ms), e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
       setFlip(el, from + (to - from) * e, 0);
       if (k < 1) requestAnimationFrame(step); else if (done) done();
     }
     requestAnimationFrame(step);
   }
 
-  function reveal(el) {
+  function reveal(el, last) {
     pack.revealed = true;
     el.classList.add("revealed");
+    el.setAttribute("aria-label", el.querySelector(".kt-front .kc").getAttribute("aria-label"));
     var c = pack.res.cards[pack.idx];
     var wow = wowText(RARITY_ORDER.indexOf(c.rarity) + (c.shiny ? 10 : 0));
-    $("kt-step-hint").innerHTML = (wow ? "<b>" + wow + "</b> · " : "") + "Tippen für die Übersicht";
+    $("kt-step-hint").innerHTML = (wow ? "<b>" + wow + "</b> · " : "")
+      + (last ? "Tippen für die Übersicht" : "Tippen oder wischen für die nächste Karte");
   }
 
+  // Jede Karte: 1. Antippen dreht sie um (die 5. langsam), danach wischen/tippen = weiter.
+  // Umdrehen geht auch per Wischen – bei der 5. Karte mit langem, langsamem Weg.
   function bindTop(el, last) {
-    if (!last) {
-      bindDrag(el, function (dx) {
-        el.style.transition = "none";
-        el.style.transform = "translateX(" + dx + "px) rotate(" + dx / 18 + "deg)";
-      }, function (dx) {
-        if (Math.abs(dx) > 70 || Math.abs(dx) < 6) return nextCard(el, dx > 0 ? 1 : -1);
-        el.style.transition = "transform .25s";
-        el.style.transform = "";
-      });
-      el.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " " || e.key === "ArrowRight") { e.preventDefault(); nextCard(el, -1); }
-      });
-      return;
-    }
     var busyFlip = false;
+    var tapMs = last ? 1800 : 550, swipeMs = last ? 1100 : 300;
+    var dist = last ? Math.min(320, window.innerWidth * 0.6) : 150;
     function finish(ms) {
       busyFlip = true;
-      animateFlip(el, 1, ms, function () { busyFlip = false; reveal(el); });
+      animateFlip(el, 1, ms, function () { busyFlip = false; reveal(el, last); });
+    }
+    function advance(dir) {
+      if (last) { pack.step = "summary"; drawPack(); } else nextCard(el, dir);
     }
     setFlip(el, 0, 0);
     bindDrag(el, function (dx) {
-      if (pack.revealed || busyFlip) return;
-      // Eine ganze Drehung braucht einen langen Wischweg (max. 320 px, auf dem Handy ~60 % der Breite)
-      setFlip(el, Math.min(1, Math.abs(dx) / Math.min(320, window.innerWidth * 0.6)), dx);
+      if (busyFlip) return;
+      if (pack.revealed) {
+        if (last) return;
+        el.style.transition = "none";
+        el.style.transform = "translateX(" + dx + "px) rotate(" + dx / 18 + "deg)";
+        return;
+      }
+      setFlip(el, Math.min(1, Math.abs(dx) / dist), dx);
     }, function (dx) {
       if (busyFlip) return;
-      if (pack.revealed) { pack.step = "summary"; drawPack(); return; }
-      if (Math.abs(dx) < 6) return finish(1800);           // Tippen: langsam von selbst
-      if (pack.flip > 0.45) return finish(1100);
+      if (pack.revealed) {
+        if (last || Math.abs(dx) > 70 || Math.abs(dx) < 6) return advance(dx > 0 ? 1 : -1);
+        el.style.transition = "transform .25s";
+        el.style.transform = "";
+        return;
+      }
+      if (Math.abs(dx) < 6) return finish(tapMs);
+      if (pack.flip > 0.45) return finish(swipeMs);
       busyFlip = true;
-      animateFlip(el, 0, 400, function () { busyFlip = false; });
+      animateFlip(el, 0, 300, function () { busyFlip = false; });
     });
     el.addEventListener("keydown", function (e) {
       if (e.key !== "Enter" && e.key !== " " && e.key !== "ArrowRight") return;
       e.preventDefault();
-      if (pack.revealed) { pack.step = "summary"; drawPack(); } else if (!busyFlip) finish(1800);
+      if (busyFlip) return;
+      if (pack.revealed) advance(-1); else finish(tapMs);
     });
   }
 
