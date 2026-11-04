@@ -35,7 +35,11 @@
   danach alle `!herde`-Sichtbaren nach Zuschauzeit (Liste aus `herd.members` der Apps-Script-API, Feld `name`),
   dann 40 Gazellen- und 20 Stream-Items (`supabase/migrations/20261104_cards_series1_content.sql`).
   **Ende Dezember 2026 neu sortieren** (Zuschauzeit Jahresende, neue `!herde`-Leute dazu) – vor dem Start.
-  Testphase: Tester `mr27cent` hat Testdaten – vor dem 01.01.2027 alle Karten/Packs/Zuschauzeit zurücksetzen.
+  Hochstufen: 3 gleiche Versionen → 1 eine Seltenheit höher (2 werden verbraucht, 1 bleibt), RPC `cards_upgrade`/`cards_web_upgrade`.
+  Errungenschaften (Steam-artig, mit % der Sammler): Tabellen `cards_achievements` + `cards_achievement_unlocks`,
+  Zahlen aus `cards_player_stats`, freischalten per `cards_ach_sync`. „Deine Karte wurde gezogen“: `cards_card_stats`.
+  Common-Farbe = Sandbraun. Migration `supabase/migrations/20261104_cards_upgrade_achievements.sql`.
+  Testphase: Tester `mr27cent` hat Testdaten – vor dem 01.01.2027 alle Karten/Packs/Zuschauzeit sowie `cards_upgrades` + `cards_achievement_unlocks` zurücksetzen.
 - **Hauptspiele:** Rocket League & Elden Ring.
 
 ## Offen

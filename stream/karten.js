@@ -37,6 +37,8 @@
     erledigt: "Das Angebot wurde schon beantwortet.",
     nicht_mehr_doppelt: "Eine der Karten ist nicht mehr doppelt vorhanden – der Tausch wurde abgebrochen.",
     nicht_im_besitz: "Diese Version der Karte hast du nicht.",
+    zu_wenig: "Zum Hochstufen brauchst du 3 gleiche Karten (gleiche Seltenheit).",
+    schon_hoechste: "Mythic ist die höchste Seltenheit – weiter geht's nicht.",
     versteckt: "Dieses Album ist versteckt.",
     unbekannt: "Dieses Album gibt es (noch) nicht – es erscheint, sobald die Person Karten hat."
   };
@@ -102,6 +104,17 @@
     box.hidden = false;
     clearTimeout(flash.timer);
     flash.timer = setTimeout(function () { box.hidden = true; }, 7000);
+  }
+  // Neu freigeschaltete Errungenschaften melden (kommen bei Pack, Hochstufen, Tausch mit)
+  function achNotice(list) {
+    if (!list || !list.length) return;
+    flash("🏅 Errungenschaft freigeschaltet: " + list.map(function (a) { return a.icon + " " + a.name; }).join(", "), "ok");
+    if (SND.enabled()) SND.play("rare");
+  }
+  var UPGRADE_NEED = 3;
+  // Versionen, die sich hochstufen lassen (3 gleiche, nicht schon Mythic)
+  function upgradable(c) {
+    return vars(c).filter(function (v) { return v.q >= UPGRADE_NEED && v.r !== "M"; });
   }
 
   // ── Login (Supabase Auth, Anbieter Twitch) ─────────────────────────────────
@@ -289,7 +302,8 @@
     var newCount = own && state.newIds ? Object.keys(state.newIds).length : 0;
     var opts = [["all", "Alle"]].concat(newCount ? [["new", "✨ Neu (" + newCount + ")"]] : [])
       .concat(RARITY_ORDER.map(function (r) { return [r, RARITY_NAMES[r]]; }))
-      .concat([["missing", "Fehlend"], ["dupes", "Doppelt"], ["shiny", "Shiny"]]);
+      .concat([["missing", "Fehlend"], ["dupes", "Doppelt"], ["shiny", "Shiny"]])
+      .concat(own ? [["up", "⬆ Hochstufbar"]] : []);
     return '<div class="kt-chips" role="group" aria-label="Filter">' + opts.map(function (o) {
       return '<button type="button" class="kt-chip' + (o[0].length === 1 ? " r-" + o[0] : "")
         + (state.filter === o[0] ? " on" : "") + '" data-filter="' + o[0] + '">' + o[1] + "</button>";
@@ -305,6 +319,7 @@
       if (f === "missing") return !owns(c);
       if (f === "dupes") return vars(c).some(function (v) { return !v.s && v.q > 1; });
       if (f === "shiny") return vars(c).some(function (v) { return v.s; });
+      if (f === "up") return upgradable(c).length > 0;
       return hasRarity(c, f);
     });
   }
@@ -313,12 +328,18 @@
     var s = stats(album);
     var list = filtered(album.cards, own);
     var isNew = function (c) { return own && state.newIds && state.newIds[c.id]; };
-    return '<div class="kt-album-head">'
+    var ups = own ? album.cards.reduce(function (n, c) { return n + upgradable(c).length; }, 0) : 0;
+    var mc = album.my_card && album.my_card.ok ? album.my_card : null;
+    return (mc ? '<div class="kt-mycard">🦌 ' + (own ? "Deine Herden-Karte" : "Die Herden-Karte von " + esc(album.name))
+        + " <b>#" + pad(mc.number) + "</b> wurde <b>" + fmtNum(mc.pulls) + "×</b> von anderen gezogen · <b>"
+        + fmtNum(mc.collectors) + "</b> " + (mc.collectors === 1 ? "Sammler hat" : "Sammler haben") + " sie</div>" : "")
+      + '<div class="kt-album-head">'
       + '<div class="kt-progress"><b>' + s.have + "</b> / " + s.total + " Karten"
       + '<span class="kt-bar"><span style="width:' + (100 * s.have / s.total).toFixed(1) + '%"></span></span></div>'
       + '<span class="kt-pill" title="Jede Karte gibt es in 6 Seltenheiten">◆ ' + s.versions + " / " + fmtNum(s.versionsTotal) + " Versionen</span>"
       + '<span class="kt-pill">★ ' + s.shinies + " Shinys</span>"
       + '<span class="kt-pill">⇄ ' + s.dupes + " doppelt</span>"
+      + (ups ? '<button type="button" class="kt-pill kt-pill-up" data-filter="up">⬆ ' + ups + " hochstufbar</button>" : "")
       + "</div>" + filterChips(own)
       + (list.length
         ? '<div class="kt-grid">' + list.map(function (c) {
@@ -400,7 +421,7 @@
     var incoming = state.me && state.me.incoming_trades;
     var tabs = [["album", "📖 Mein Album"], ["browse", "🔎 Alben ansehen"],
       ["trade", "⇄ Tauschen" + (incoming ? ' <span class="kt-badge">' + incoming + "</span>" : "")],
-      ["ranks", "🏆 Ranglisten"], ["odds", "🎲 Chancen"]];
+      ["ach", "🏅 Errungenschaften"], ["ranks", "🏆 Ranglisten"], ["odds", "🎲 Chancen"]];
     $("kt-nav").innerHTML = tabs.map(function (t) {
       return '<button type="button" class="kt-tab' + (state.view === t[0] ? " on" : "") + '" data-view="' + t[0] + '">' + t[1] + "</button>";
     }).join("");
@@ -417,13 +438,43 @@
         + albumGrid(state.myAlbum, true)
         + '<p class="kt-hint">Jede Karte hat einen Platz im Album – gezeigt wird automatisch deine seltenste Version. '
         + "Die Punkte unten zeigen, welche der 6 Seltenheiten du schon hast. Tippe auf eine Karte für die Großansicht; "
-        + "dort kannst du auch eine andere Version ausrüsten.</p>";
+        + "dort kannst du auch eine andere Version ausrüsten – und mit <b>3 gleichen Karten</b> eine Stufe höher bringen.</p>";
+      return;
+    }
+    if (v === "ach") {
+      if (!state.session) { box.innerHTML = '<p class="empty">Melde dich an, um deine Errungenschaften zu sehen.</p>'; return; }
+      if (!state.myAlbum) { box.innerHTML = '<p class="empty">Lade …</p>'; return; }
+      box.innerHTML = achList(state.myAlbum.achievements, true);
       return;
     }
     if (v === "browse") return renderBrowse(box);
     if (v === "trade") return renderTrade(box);
     if (v === "ranks") return renderRanks(box);
     if (v === "odds") return renderOdds(box);
+  }
+
+  // Errungenschaften wie bei Steam: freigeschaltet oben, Fortschritt, Datum, % aller Sammler
+  function achList(list, own) {
+    list = list || [];
+    if (!list.length) return '<p class="empty">Noch keine Errungenschaften.</p>';
+    var done = list.filter(function (a) { return a.unlocked_at; });
+    var open = list.filter(function (a) { return !a.unlocked_at; });
+    function row(a) {
+      var got = !!a.unlocked_at;
+      var p = a.goal ? Math.min(100, 100 * a.value / a.goal) : 0;
+      return '<li class="kt-ach' + (got ? " got" : "") + '">'
+        + '<span class="kt-ach-icon" aria-hidden="true">' + esc(a.icon) + "</span>"
+        + '<span class="kt-ach-body"><b>' + esc(a.name) + "</b><small>" + esc(a.description) + "</small>"
+        + (got ? '<span class="kt-ach-date">Freigeschaltet am ' + new Date(a.unlocked_at).toLocaleDateString("de-DE") + "</span>"
+          : (a.goal > 1 ? '<span class="kt-ach-prog"><span class="kt-bar"><span style="width:' + p.toFixed(1) + '%"></span></span>'
+            + fmtNum(a.value) + " / " + fmtNum(a.goal) + "</span>" : ""))
+        + "</span>"
+        + '<span class="kt-ach-pct" title="So viele Sammler haben das geschafft">' + a.percent + " %</span></li>";
+    }
+    return '<div class="kt-ach-head"><div class="kt-progress"><b>' + done.length + "</b> / " + list.length + " Errungenschaften"
+      + '<span class="kt-bar"><span style="width:' + (100 * done.length / list.length).toFixed(1) + '%"></span></span></div></div>'
+      + '<ul class="kt-ach-list">' + done.concat(open).map(row).join("") + "</ul>"
+      + (own ? '<p class="kt-hint">Die Prozentzahl rechts zeigt, wie viele Sammler die Errungenschaft schon haben – wie bei Steam.</p>' : "");
   }
 
   function renderBrowse(box) {
@@ -436,6 +487,9 @@
       + '<div id="kt-other">' + (o ? (o.ok ? '<h3 class="kt-other-title">Album von ' + esc(o.name) + "</h3>" + albumGrid(o, false)
         + (state.session && state.me && o.login !== state.me.login
           ? '<p><button class="btn btn-ghost" type="button" data-trade-with="' + esc(o.login) + '">⇄ Mit ' + esc(o.name) + " tauschen</button></p>" : "")
+        + (o.achievements ? '<details class="kt-ach-other"><summary>🏅 Errungenschaften von ' + esc(o.name) + " ("
+          + o.achievements.filter(function (a) { return a.unlocked_at; }).length + " / " + o.achievements.length + ")</summary>"
+          + achList(o.achievements, false) + "</details>" : "")
         : '<p class="empty">' + esc(reasonText(o)) + "</p>") : "") + "</div>";
     bindNameSearch($("kt-search"), $("kt-names"));
     $("kt-search-form").onsubmit = function (e) {
@@ -887,6 +941,7 @@
     if (!packs || !packs.length) return flash(REASONS.keine_packs, "error");
     busy(btn, rpc("cards_web_open", { p_pack_id: packs[0].id }, true).then(function (r) {
       if (!r.ok) return flash(reasonText(r), "error");
+      state.pendingAch = (state.pendingAch || []).concat(r.achievements || []);
       showPack(r);
       return loadMe().then(function () { renderAccount(); renderNav(); if (state.view === "album") renderView(); });
     }));
@@ -943,12 +998,20 @@
           + '" data-shiny="' + (v.s ? 1 : 0) + '" aria-pressed="' + on + '">' + label + "</button>"
         : '<span class="kt-ver r-' + v.r + (on ? " on" : "") + (v.s ? " sh" : "") + '">' + label + "</span>";
     }).join("");
+    var ups = mine ? upgradable(c).sort(function (a, b) { return RARITY_ORDER.indexOf(a.r) - RARITY_ORDER.indexOf(b.r); }) : [];
     box.innerHTML = '<div class="kt-pack-box kt-card-box" role="dialog" aria-modal="true" aria-label="Karte">'
       + '<div class="kt-tilt' + (c.show_shiny ? " is-shiny" : "") + '"><div class="kt-tilt-in">' + cardTile(c)
       + '<span class="kt-glare" aria-hidden="true"></span></div></div>'
       + "<p>" + (mine ? "Deine Versionen" + (list.length > 1 ? " – antippen zum Ausrüsten" : "") : esc(album.name) + " hat diese Versionen") + ":</p>"
       + '<div class="kt-vers">' + versions + "</div>"
       + (mine && c.chosen ? '<p><button class="kt-link" type="button" data-equip="' + esc(c.id) + '" data-shiny="0">↺ Automatisch die seltenste zeigen</button></p>' : "")
+      + (mine && ups.length ? '<p class="kt-up-title">⬆ Hochstufen – 3 gleiche Karten ergeben eine Stufe höher (1 behältst du):</p><div class="kt-vers">'
+        + ups.map(function (v) {
+          var to = RARITY_ORDER[RARITY_ORDER.indexOf(v.r) + 1];
+          return '<button class="kt-ver kt-up r-' + to + '" type="button" data-up="' + esc(c.id + "-" + v.r) + '" data-shiny="' + (v.s ? 1 : 0) + '">'
+            + (v.s ? "✨ " : "") + rarName(v.r) + " → <b>" + rarName(to) + "</b> <small>(hast " + v.q + ")</small></button>";
+        }).join("") + "</div>" : "")
+      + '<p class="kt-card-stats" id="kt-card-stats"></p>'
       + '<div class="kt-pack-btns"><button class="btn btn-ghost" type="button" data-act="card-close">Schließen</button></div></div>';
     box.hidden = false;
     if (tiltOff) tiltOff();
@@ -962,6 +1025,23 @@
         }));
       };
     });
+    box.querySelectorAll("[data-up]").forEach(function (b) {
+      b.onclick = function () {
+        busy(b, rpc("cards_web_upgrade", { p_version: b.getAttribute("data-up"), p_shiny: b.getAttribute("data-shiny") === "1" }, true).then(function (r) {
+          if (!r.ok) return flash(reasonText(r), "error");
+          flash("⬆ " + r.card.name + " ist jetzt " + rarName(r.card.rarity) + (r.card.shiny ? " ✨" : "") + "!", "ok");
+          revealSound(r.card);
+          setTimeout(function () { achNotice(r.achievements); }, 2500);
+          return loadMe().then(function () { renderView(); showCard(id, "mine"); });
+        }));
+      };
+    });
+    // Wie oft andere die Karte gezogen haben
+    rpc("cards_card_stats", { p_card: c.id }).then(function (s) {
+      var el = $("kt-card-stats");
+      if (!el || !s || !s.ok) return;
+      el.textContent = "🎴 " + fmtNum(s.pulls) + "× gezogen · " + fmtNum(s.collectors) + " " + (s.collectors === 1 ? "Sammler hat" : "Sammler haben") + " diese Karte";
+    }).catch(function () {});
     box.querySelector("[data-act=card-close]").focus();
   }
 
@@ -1022,7 +1102,7 @@
       var grad = g.createLinearGradient(bx, 0, bx + bw, 0); grad.addColorStop(0, "#b9c25a"); grad.addColorStop(1, "#f4c25a");
       g.fillStyle = grad; roundRect(g, bx, by, Math.max(34, bw * s.have / s.total), 34, 17); g.fill();
       // Seltenheiten
-      var colors = { C: "#a99f92", U: "#74c266", R: "#5ea8ef", E: "#b07ee8", L: "#f4c04a", M: "#ff6f88" };
+      var colors = { C: "#c99a68", U: "#74c266", R: "#5ea8ef", E: "#b07ee8", L: "#f4c04a", M: "#ff6f88" };
       var per = {};
       RARITY_ORDER.forEach(function (k) { per[k] = [0, 0]; });
       // pro Seltenheit: wie viele der Karten man in dieser Seltenheit hat
@@ -1113,6 +1193,7 @@
       busy(t, call.then(function (r) {
         if (!r.ok) flash(reasonText(r), "error");
         else flash(k === "accept" ? "Getauscht! 🦌 Die Karte ist jetzt in deinem Album." : k === "decline" ? "Angebot abgelehnt." : "Angebot zurückgezogen.", "ok");
+        if (r.ok) achNotice(r.achievements);
         return loadTrades();
       }));
     });
@@ -1132,6 +1213,8 @@
       drawPack();
     } else if (act === "pack-close") {
       $("kt-pack").hidden = true;
+      achNotice(state.pendingAch);
+      state.pendingAch = [];
     } else if (act === "card-close") {
       closeCard();
     } else if (act === "starter") {
@@ -1203,6 +1286,7 @@
   $("karten").addEventListener("click", onClick);
   document.addEventListener("keydown", function (e) {
     if (e.key !== "Escape") return;
+    if (!$("kt-pack").hidden) { achNotice(state.pendingAch); state.pendingAch = []; }
     $("kt-pack").hidden = true;
     closeCard();
   });
