@@ -342,7 +342,7 @@
       parts.push('<div class="kt-countdown"><span class="kt-cd-label">Start am 1. Januar 2027</span>'
         + '<span class="kt-cd-value">noch ' + d + " Tage, " + h + " Std.</span></div>");
     }
-    parts.push('<p class="kt-intro">' + info.total + " Karten – Herdenmitglieder und Dinge aus der Savanne. "
+    parts.push('<p class="kt-intro">' + info.total + " Karten – Herdenmitglieder, Savannentiere und alles rund ums Streamen. "
       + "Jede Karte gibt es in allen <b>6 Seltenheiten</b> und jeweils als seltenes <b>Shiny</b>; im Album zeigt jede Karte "
       + "automatisch deine seltenste Version. "
       + "Packs gibt es zum Start (3 Starter-Packs), jede Woche gratis"

@@ -2,7 +2,7 @@
  *  - Seiten, Skripte, Styles: zuerst aus dem Netz (immer aktuell), offline aus dem Zwischenspeicher
  *  - Bilder & Schriften: sofort aus dem Zwischenspeicher, im Hintergrund aktualisiert
  * Nur eigene Dateien – Twitch-, Google- und Discord-Daten werden nie zwischengespeichert. */
-var VERSION = "stream-v28";
+var VERSION = "stream-v29";
 var CORE = [
   "./", "index.html", "theme.js", "style.css", "savanna.css", "config.js", "herd-core.js", "app.js",
   "extras.js", "savanna.js", "raetsel.js", "partner.js", "karten.js", "karten-sound.js", "karten.css", "raetsel.json", "wordle-woerter.json", "favicon.svg", "fonts/lilita-one-400.woff2", "fonts/nunito-var.woff2"
