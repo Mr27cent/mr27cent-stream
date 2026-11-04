@@ -28,6 +28,13 @@
   OBS-Overlay `karten-overlay.html/.js/.css` (Legendary/Mythic/Shiny, RPC `cards_overlay_feed`, `?demo=1`).
   Datenbank-Migrationen + Edge Function `cards-tick` liegen unter `supabase/` (nur Backup, Supabase-Projekt
   `pgqpgvtscyxpghspnhdw`; Änderungen dort per Migration einspielen und hier ablegen).
+  Karten-Modell (seit 04.11.2026): 150 Karten, **jede in allen 6 Seltenheiten + Shiny**; Seltenheit steht an der
+  gezogenen Version (`S1-017-L`), nicht im Katalog. Album = 1 Platz pro Karte, zeigt seltenste oder ausgerüstete Version.
+  Karten sind `person` (Twitch-Profilbild, nur mit Zustimmung der Person; `cards-tick` holt es) oder `item`.
+  Eintragen: `cards_admin_set_card(nr, kind, name, login, image, flavor)` per SQL. Belegung: #001 Mr27cent,
+  danach alle `!herde`-Sichtbaren nach Zuschauzeit (Liste aus `herd.members` der Apps-Script-API, Feld `name`),
+  dann 40 Gazellen- und 20 Stream-Items (`supabase/migrations/20261104_cards_series1_content.sql`).
+  **Ende Dezember 2026 neu sortieren** (Zuschauzeit Jahresende, neue `!herde`-Leute dazu) – vor dem Start.
   Testphase: Tester `mr27cent` hat Testdaten – vor dem 01.01.2027 alle Karten/Packs/Zuschauzeit zurücksetzen.
 - **Hauptspiele:** Rocket League & Elden Ring.
 

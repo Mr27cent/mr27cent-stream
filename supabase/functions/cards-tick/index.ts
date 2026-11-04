@@ -5,6 +5,7 @@
 //   bei Ablehnung (Limit, noch nicht gestartet) erstatten
 // - schaltet die Belohnung zum Start (cards_config.launch_at) automatisch frei
 // - lässt abgelaufene Tauschangebote verfallen
+// - holt die Twitch-Profilbilder für Personen-Karten (täglich aufgefrischt)
 // Den Twitch-Zugang erneuert nur twitch-tick – hier wird er nur gelesen.
 //
 // Verwaltung (Header x-cron-secret, ?action=…):
@@ -232,6 +233,27 @@ async function run(t: Tw) {
   // 5) Abgelaufene Tauschangebote
   const expired = await rpc("cards_expire_trades", {});
   if (expired) out.tausch_abgelaufen = expired;
+
+  // 6) Profilbilder der Personen-Karten holen bzw. täglich auffrischen
+  try {
+    const todo: { id: string; login: string }[] = (await rpc("cards_avatar_todo", {})) ?? [];
+    if (todo.length) {
+      const logins = [...new Set(todo.map((r) => r.login))];
+      const uj = await tw(t, "users?" + logins.map((l) => "login=" + encodeURIComponent(l)).join("&"));
+      // deno-lint-ignore no-explicit-any
+      const found = new Map<string, any>((uj.data ?? []).map((u: any) => [String(u.login).toLowerCase(), u]));
+      // Nicht gefundene Namen trotzdem melden, damit sie erst morgen wieder versucht werden
+      const rows = logins.map((l) => {
+        const u = found.get(l);
+        return { login: l, twitch_id: u ? String(u.id) : null, avatar: u ? String(u.profile_image_url) : null };
+      });
+      out.profilbilder = await rpc("cards_avatar_save", { p_rows: rows });
+      const missing = logins.filter((l) => !found.has(l));
+      if (missing.length) out.profilbild_fehlt = missing;
+    }
+  } catch (e) {
+    console.error("Profilbilder:", e instanceof Error ? e.message : e);
+  }
 
   return out;
 }

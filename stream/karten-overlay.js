@@ -22,7 +22,12 @@
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
   function pad(n) { return String(n).padStart(3, "0"); }
-  function safeImg(src) { return typeof src === "string" && /^[\w\-./]+$/.test(src) && src.indexOf("..") === -1 ? src : ""; }
+  // Eigene Bilder (relativer Pfad) oder Twitch-Profilbilder (Personen-Karten)
+  function safeImg(src) {
+    if (typeof src !== "string" || src.indexOf("..") !== -1) return "";
+    if (/^[\w\-./]+$/.test(src)) return src;
+    return /^https:\/\/static-cdn\.jtvnw\.net\/[\w\-./]+$/.test(src) ? src : "";
+  }
 
   function backArt() {
     var look = HC ? HC.lookFor(CFG.herd.maxHours || 1000) : null;
@@ -32,7 +37,7 @@
 
   function cardFace(c) {
     var img = safeImg(c.image);
-    return '<div class="kc r-' + c.rarity + (c.shiny ? " shiny" : "") + '">'
+    return '<div class="kc r-' + c.rarity + (c.shiny ? " shiny" : "") + (c.kind === "person" ? " person" : "") + '">'
       + '<span class="kc-no">#' + pad(c.number) + "</span>"
       + '<span class="kc-art">' + (img ? '<img src="' + esc(img) + '" alt="">' : '<svg><use href="#sym-gazelle"/></svg>') + "</span>"
       + '<span class="kc-name">' + esc(c.name) + "</span>"

@@ -70,7 +70,22 @@
   function pct(v, digits) {
     return Number(v).toLocaleString("de-DE", { maximumFractionDigits: digits == null ? 2 : digits }) + " %";
   }
-  function safeImg(src) { return typeof src === "string" && /^[\w\-./]+$/.test(src) && src.indexOf("..") === -1 ? src : ""; }
+  // Erlaubt: eigene Bilder (relativer Pfad) und Twitch-Profilbilder
+  function safeImg(src) {
+    if (typeof src !== "string" || src.indexOf("..") !== -1) return "";
+    if (/^[\w\-./]+$/.test(src)) return src;
+    return /^https:\/\/static-cdn\.jtvnw\.net\/[\w\-./]+$/.test(src) ? src : "";
+  }
+  function rarName(r) { return RARITY_NAMES[r] || "???"; }
+  // Versionen einer Karte im Album: [{r: "L", s: false, q: 1}, …]
+  function vars(c) { return c.variants || []; }
+  function owns(c) { return vars(c).length > 0; }
+  function hasRarity(c, r) { return vars(c).some(function (v) { return v.r === r; }); }
+  function versionCount(c) {
+    var seen = {};
+    vars(c).forEach(function (v) { seen[v.r] = 1; });
+    return Object.keys(seen).length;
+  }
   function reasonText(r) {
     if (!r) return "Da ist etwas schiefgelaufen. Bitte versuch es gleich noch einmal.";
     if (r.reason === "zu_wenig_zeit") {
@@ -195,24 +210,23 @@
     });
   }
 
-  // „Neu seit letztem Besuch“: der Browser merkt sich, welche Karten (normal / Shiny)
-  // man zuletzt hatte. Die Markierung bleibt für diesen Besuch stehen.
+  // „Neu seit letztem Besuch“: der Browser merkt sich, welche Versionen (Karte + Seltenheit,
+  // normal / Shiny) man zuletzt hatte. Die Markierung bleibt für diesen Besuch stehen.
   function ownedKeys(album) {
     var keys = {};
     album.cards.forEach(function (c) {
-      if (c.qty > 0) keys[c.id] = 1;
-      if (c.shiny_qty > 0) keys[c.id + "*"] = 1;
+      vars(c).forEach(function (v) { keys[c.id + "|" + v.r + (v.s ? "*" : "")] = 1; });
     });
     return keys;
   }
   function markNew() {
     if (!state.myAlbum || !state.me) return;
-    var storeKey = "cards_seen_v1:" + state.me.login, now = ownedKeys(state.myAlbum), before = null;
+    var storeKey = "cards_seen_v2:" + state.me.login, now = ownedKeys(state.myAlbum), before = null;
     if (state.seenKeys) before = state.seenKeys;
     else { try { before = JSON.parse(store(storeKey) || "null"); } catch (e) { before = null; } }
     state.newIds = state.newIds || {};
     // Beim allerersten Besuch ist nichts „neu“ – sonst wäre alles markiert
-    if (before) Object.keys(now).forEach(function (k) { if (!before[k]) state.newIds[k.replace("*", "")] = 1; });
+    if (before) Object.keys(now).forEach(function (k) { if (!before[k]) state.newIds[k.split("|")[0]] = 1; });
     state.seenKeys = now;
     store(storeKey, JSON.stringify(now));
   }
@@ -222,36 +236,53 @@
   }
 
   // ── Bausteine ──────────────────────────────────────────────────────────────
+  // Kleine Punkte unten: welche der 6 Seltenheiten man von dieser Karte hat (★ = auch als Shiny)
+  function pips(c) {
+    return '<span class="kc-pips" aria-hidden="true">' + RARITY_ORDER.map(function (r) {
+      var have = vars(c).filter(function (v) { return v.r === r; });
+      var sh = have.some(function (v) { return v.s; });
+      return '<i class="r-' + r + (have.length ? " on" : "") + (sh ? " sh" : "") + '"></i>';
+    }).join("") + "</span>";
+  }
+
+  // Album-Karte (opts.reveal = frisch gezogene Version aus dem Pack bzw. Tausch)
   function cardTile(c, opts) {
     opts = opts || {};
-    var owned = (c.qty || 0) + (c.shiny_qty || 0) > 0 || opts.reveal;
+    var owned = opts.reveal || owns(c);
     var shiny = opts.reveal ? !!c.shiny : !!c.show_shiny;
+    var rar = c.rarity || "C";
     var img = owned && safeImg(c.image);
-    var cls = "kc r-" + c.rarity + (owned ? "" : " missing") + (shiny ? " shiny" : "") + (opts.isNew ? " is-new" : "");
-    var count = opts.reveal ? "" : (c.qty > 1 ? '<span class="kc-qty" title="Anzahl normal">×' + c.qty + "</span>" : "");
-    var star = !opts.reveal && c.shiny_qty
-      ? '<span class="kc-star" title="Shiny ×' + c.shiny_qty + '">★' + (c.shiny_qty > 1 ? c.shiny_qty : "") + "</span>" : "";
+    var name = owned ? String(c.name || "") : "???";
+    var cls = "kc r-" + rar + (owned ? "" : " missing") + (shiny ? " shiny" : "") + (opts.isNew ? " is-new" : "")
+      + (c.kind === "person" ? " person" : "") + (name.length > 15 ? " name-xl" : name.length > 11 ? " name-l" : "");
+    var count = !opts.reveal && owned && versionCount(c) > 1
+      ? '<span class="kc-qty" title="Versionen dieser Karte">' + versionCount(c) + "/6</span>" : "";
     var tag = opts.button ? "button" : "div";
     return "<" + tag + ' class="' + cls + '"'
       + (opts.button ? ' type="button" data-card="' + esc(c.id) + '" data-album="' + (opts.album || "mine") + '"' : "")
-      + ' aria-label="' + esc("#" + pad(c.number) + " " + (owned ? c.name : "unbekannt") + ", " + RARITY_NAMES[c.rarity] + (shiny ? ", Shiny" : "")) + '">'
-      + '<span class="kc-no">#' + pad(c.number) + "</span>"
-      + '<span class="kc-art">' + (img ? '<img src="' + esc(img) + '" alt="" loading="lazy">'
+      + ' aria-label="' + esc("#" + pad(c.number) + " " + (owned ? c.name : "unbekannt") + (owned ? ", " + rarName(c.rarity) : "") + (shiny ? ", Shiny" : "")) + '">'
+      + '<span class="kc-no">#' + pad(c.number) + (owned && c.kind === "person" ? ' <span class="kc-kind">🦌 Herde</span>' : "") + "</span>"
+      + '<span class="kc-art">' + (img ? '<img src="' + esc(img) + '" alt="" loading="lazy" referrerpolicy="no-referrer">'
         : '<svg aria-hidden="true"><use href="#sym-gazelle"/></svg>') + "</span>"
-      + '<span class="kc-name">' + (owned ? esc(c.name) : "???") + "</span>"
-      + '<span class="kc-rar">' + RARITY_NAMES[c.rarity] + (shiny ? " ✨" : "") + "</span>"
-      + count + star + (opts.isNew ? '<span class="kc-new">NEU</span>' : "")
+      + '<span class="kc-name" title="' + esc(name) + '">' + esc(name) + "</span>"
+      + '<span class="kc-rar">' + (owned ? rarName(c.rarity) : "&nbsp;") + (shiny ? " ✨" : "") + "</span>"
+      + (opts.reveal ? "" : pips(c))
+      + count + (opts.isNew ? '<span class="kc-new">NEU</span>' : "")
       + "</" + tag + ">";
   }
 
   function stats(album) {
-    var have = 0, shinies = 0, dupes = 0;
+    var have = 0, versions = 0, shinies = 0, dupes = 0;
     album.cards.forEach(function (c) {
-      if (c.qty + c.shiny_qty > 0) have++;
-      if (c.shiny_qty > 0) shinies++;
-      if (c.qty > 1) dupes++;
+      if (owns(c)) have++;
+      versions += versionCount(c);
+      vars(c).forEach(function (v) {
+        if (v.s) shinies++;
+        else if (v.q > 1) dupes++;
+      });
     });
-    return { have: have, shinies: shinies, dupes: dupes, total: album.cards.length };
+    return { have: have, versions: versions, shinies: shinies, dupes: dupes, total: album.cards.length,
+      versionsTotal: album.cards.length * RARITY_ORDER.length };
   }
 
   function filterChips(own) {
@@ -271,10 +302,10 @@
     return cards.filter(function (c) {
       if (f === "all") return true;
       if (f === "new") return !!(state.newIds && state.newIds[c.id]);
-      if (f === "missing") return c.qty + c.shiny_qty === 0;
-      if (f === "dupes") return c.qty > 1;
-      if (f === "shiny") return c.shiny_qty > 0;
-      return c.rarity === f;
+      if (f === "missing") return !owns(c);
+      if (f === "dupes") return vars(c).some(function (v) { return !v.s && v.q > 1; });
+      if (f === "shiny") return vars(c).some(function (v) { return v.s; });
+      return hasRarity(c, f);
     });
   }
 
@@ -285,13 +316,14 @@
     return '<div class="kt-album-head">'
       + '<div class="kt-progress"><b>' + s.have + "</b> / " + s.total + " Karten"
       + '<span class="kt-bar"><span style="width:' + (100 * s.have / s.total).toFixed(1) + '%"></span></span></div>'
+      + '<span class="kt-pill" title="Jede Karte gibt es in 6 Seltenheiten">◆ ' + s.versions + " / " + fmtNum(s.versionsTotal) + " Versionen</span>"
       + '<span class="kt-pill">★ ' + s.shinies + " Shinys</span>"
       + '<span class="kt-pill">⇄ ' + s.dupes + " doppelt</span>"
       + "</div>" + filterChips(own)
       + (list.length
         ? '<div class="kt-grid">' + list.map(function (c) {
           // Alle besessenen Karten lassen sich groß ansehen – im eigenen und in fremden Alben
-          return cardTile(c, { button: c.qty + c.shiny_qty > 0, album: own ? "mine" : "other", isNew: isNew(c) });
+          return cardTile(c, { button: owns(c), album: own ? "mine" : "other", isNew: isNew(c) });
         }).join("") + "</div>"
         : '<p class="empty">Keine Karten für diesen Filter.</p>');
   }
@@ -310,7 +342,9 @@
       parts.push('<div class="kt-countdown"><span class="kt-cd-label">Start am 1. Januar 2027</span>'
         + '<span class="kt-cd-value">noch ' + d + " Tage, " + h + " Std.</span></div>");
     }
-    parts.push('<p class="kt-intro">' + info.total + " Karten in 6 Seltenheiten – jede gibt es auch als seltenes <b>Shiny</b>. "
+    parts.push('<p class="kt-intro">' + info.total + " Karten – Herdenmitglieder und Dinge aus der Savanne. "
+      + "Jede Karte gibt es in allen <b>6 Seltenheiten</b> und jeweils als seltenes <b>Shiny</b>; im Album zeigt jede Karte "
+      + "automatisch deine seltenste Version. "
       + "Packs gibt es zum Start (3 Starter-Packs), jede Woche gratis"
       + (info.watch_pack_minutes ? ", automatisch alle " + fmtNum(info.watch_pack_minutes / 60) + " Stunden Zuschauzeit" : "")
       + " und für Kanalpunkte. "
@@ -350,7 +384,8 @@
       + "<span><b>" + hours(m.minutes) + " h</b> Zuschauzeit seit Start · " + next + "</span>"
       + "<span>Diese Woche: <b>" + m.week_minutes + " / " + m.weekly_min_minutes + " min</b>" + (weekOk ? " ✓" : "") + "</span>"
       + (m.next_watch_pack ? "<span>Nächstes Zuschau-Pack in <b>" + m.next_watch_pack + " min</b></span>" : "")
-      + "<span><b>" + m.collected + " / " + m.total + "</b> Karten · <b>" + m.shinies + "</b> Shinys</span></div>"
+      + "<span><b>" + m.collected + " / " + m.total + "</b> Karten · <b>" + (m.variants || 0) + " / " + fmtNum(m.variants_total || 0)
+      + "</b> Versionen · <b>" + m.shinies + "</b> Shinys</span></div>"
       + (m.open ? '<div class="kt-actions">' + btns.join("") + "</div>"
         : '<p class="kt-note">🔒 Das Spiel startet am 1. Januar 2027. Deine Zuschauzeit für den Gazellen-Bonus zählt ab dann.</p>')
       + '<div class="kt-me-foot">'
@@ -380,7 +415,9 @@
       if (!state.myAlbum) { box.innerHTML = '<p class="empty">Lade dein Album …</p>'; return; }
       box.innerHTML = '<div class="kt-album-actions"><button class="btn btn-ghost" type="button" data-act="share">📤 Album teilen</button></div>'
         + albumGrid(state.myAlbum, true)
-        + '<p class="kt-hint">Tippe auf eine Karte für die Großansicht. Hast du sie auch als Shiny, wählst du dort, welche Version im Album gezeigt wird.</p>';
+        + '<p class="kt-hint">Jede Karte hat einen Platz im Album – gezeigt wird automatisch deine seltenste Version. '
+        + "Die Punkte unten zeigen, welche der 6 Seltenheiten du schon hast. Tippe auf eine Karte für die Großansicht; "
+        + "dort kannst du auch eine andere Version ausrüsten.</p>";
       return;
     }
     if (v === "browse") return renderBrowse(box);
@@ -431,6 +468,21 @@
     });
   }
 
+  function miniLabel(c) { return "#" + pad(c.number) + " " + esc(c.name) + " <small>(" + rarName(c.rarity) + ")</small>"; }
+
+  // Doppelte Versionen (ohne Shiny) eines Albums als einzelne Tausch-Einträge
+  function dupesOf(album) {
+    var out = [];
+    album.cards.forEach(function (c) {
+      vars(c).forEach(function (v) {
+        if (!v.s && v.q > 1) out.push({ id: c.id + "-" + v.r, card: c.id, number: c.number, name: c.name, rarity: v.r, qty: v.q });
+      });
+    });
+    return out.sort(function (a, b) {
+      return RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity) || a.number - b.number;
+    });
+  }
+
   function tradeRow(t) {
     var pending = t.status === "pending";
     var statusText = { accepted: "✓ getauscht", declined: "abgelehnt", cancelled: "zurückgezogen", expired: "abgelaufen" }[t.status] || "";
@@ -441,9 +493,9 @@
       + '<div class="kt-trade-who">' + (t.incoming ? "von " : "an ") + '<a href="#karten/@' + esc(t.partner_login) + '">' + esc(t.partner) + "</a>"
       + (t.source === "chat" ? ' <span class="kt-pill">Chat</span>' : "") + "</div>"
       + '<div class="kt-trade-cards">'
-      + '<span class="kt-mini r-' + give.rarity + '">Du gibst #' + pad(give.number) + " " + esc(give.name) + "</span>"
+      + '<span class="kt-mini r-' + give.rarity + '">Du gibst ' + miniLabel(give) + "</span>"
       + '<span aria-hidden="true">⇄</span>'
-      + '<span class="kt-mini r-' + get.rarity + '">Du bekommst #' + pad(get.number) + " " + esc(get.name) + "</span></div>"
+      + '<span class="kt-mini r-' + get.rarity + '">Du bekommst ' + miniLabel(get) + "</span></div>"
       + '<div class="kt-trade-act">' + (pending
         ? (t.incoming
           ? '<button class="btn btn-primary" type="button" data-trade-accept="' + t.id + '">Annehmen</button>'
@@ -457,25 +509,31 @@
     if (!state.session) { box.innerHTML = '<p class="empty">Melde dich an, um zu tauschen.</p>'; return; }
     if (!state.trades || !state.myAlbum || !state.me) { box.innerHTML = '<p class="empty">Lade Tauschangebote …</p>'; return; }
     var m = state.me;
-    var mine = state.myAlbum.cards.filter(function (c) { return c.qty > 1; });
+    var mine = dupesOf(state.myAlbum);
     var partner = state.tradePartner && state.tradePartner.ok ? state.tradePartner : null;
     var giveSel = $("kt-give") ? $("kt-give").value : "";
     var giveCard = mine.filter(function (c) { return c.id === giveSel; })[0];
-    var theirs = partner ? partner.cards.filter(function (c) {
-      return c.qty > 1 && (!giveCard || c.rarity === giveCard.rarity);
+    var theirs = partner ? dupesOf(partner).filter(function (c) {
+      return !giveCard || c.rarity === giveCard.rarity;
     }) : [];
+    // Was mir fehlt: ganze Karte (zählt am meisten) oder nur diese Version
+    var myCards = {}, myVersions = {};
+    state.myAlbum.cards.forEach(function (c) {
+      if (owns(c)) myCards[c.id] = true;
+      vars(c).forEach(function (v) { myVersions[c.id + "-" + v.r] = true; });
+    });
     function opt(c, mark) {
-      return '<option value="' + c.id + '">#' + pad(c.number) + " " + esc(c.name) + " · " + RARITY_NAMES[c.rarity]
-        + " (×" + c.qty + ")" + (mark ? " – fehlt dir" : "") + "</option>";
+      var miss = mark && (!myCards[c.card] ? " – Karte fehlt dir" : !myVersions[c.id] ? " – Version fehlt dir" : "");
+      return '<option value="' + c.id + '">#' + pad(c.number) + " " + esc(c.name) + " · " + rarName(c.rarity)
+        + " (×" + c.qty + ")" + (miss || "") + "</option>";
     }
-    var myHave = {};
-    state.myAlbum.cards.forEach(function (c) { if (c.qty + c.shiny_qty > 0) myHave[c.id] = true; });
 
     var incoming = state.trades.filter(function (t) { return t.incoming && t.status === "pending"; });
     var outgoing = state.trades.filter(function (t) { return !t.incoming && t.status === "pending"; });
     var done = state.trades.filter(function (t) { return t.status !== "pending"; });
 
-    box.innerHTML = '<p class="kt-hint">Getauscht wird nur <b>doppelt</b> vorhandene Karten der <b>gleichen Seltenheit</b>, Shinys nicht. '
+    box.innerHTML = '<p class="kt-hint">Getauscht werden nur <b>doppelt</b> vorhandene Versionen in der <b>gleichen Seltenheit</b> '
+      + "(z. B. ein doppeltes Rare gegen ein anderes doppeltes Rare), Shinys nicht. "
       + "Heute: <b>" + m.trades_today + " / " + m.trades_per_day + "</b> Tausche. Angebote über die Webseite gelten 48 Stunden.</p>"
       + suggestionsHtml()
       + '<div class="kt-trade-new card-inner"><h3>Neues Angebot</h3>'
@@ -485,9 +543,9 @@
       + '<label>Ich gebe<select id="kt-give"><option value="">– eine deiner doppelten Karten –</option>' + mine.map(function (c) { return opt(c); }).join("") + "</select></label>"
       + '<label>Ich möchte<select id="kt-want"' + (partner ? "" : " disabled") + '><option value="">'
       + (partner ? (theirs.length ? "– eine doppelte Karte von " + esc(partner.name) + " –" : "– keine passende doppelte Karte –") : "– erst Tauschpartner wählen –")
-      + "</option>" + theirs.map(function (c) { return opt(c, !myHave[c.id]); }).join("") + "</select></label>"
+      + "</option>" + theirs.map(function (c) { return opt(c, true); }).join("") + "</select></label>"
       + '<button class="btn btn-primary" type="button" id="kt-offer"' + (mine.length ? "" : " disabled") + ">Angebot schicken</button>"
-      + (mine.length ? "" : '<p class="kt-note">Du hast noch keine doppelten Karten.</p>')
+      + (mine.length ? "" : '<p class="kt-note">Du hast noch keine doppelten Versionen.</p>')
       + "</div>"
       + "<h3>Angebote an dich</h3>" + (incoming.length ? '<ul class="kt-trades">' + incoming.map(tradeRow).join("") + "</ul>" : '<p class="empty">Keine offenen Angebote.</p>')
       + "<h3>Deine offenen Angebote</h3>" + (outgoing.length ? '<ul class="kt-trades">' + outgoing.map(tradeRow).join("") + "</ul>" : '<p class="empty">Keine.</p>')
@@ -533,15 +591,16 @@
         + "Sobald jemand doppelt hat, was dir fehlt (und umgekehrt), erscheint das hier.</p></div>";
     }
     return '<div class="kt-suggest card-inner"><h3>💡 Tauschvorschläge</h3>'
-      + '<p class="kt-hint">Beide bekommen eine Karte, die ihnen noch fehlt.</p><ul class="kt-trades">'
+      + '<p class="kt-hint">Beide bekommen eine Version, die ihnen noch fehlt – ganz fehlende Karten stehen oben.</p><ul class="kt-trades">'
       + list.map(function (p) {
         return '<li class="kt-trade"><div class="kt-trade-who"><a href="#karten/@' + esc(p.login) + '">' + esc(p.partner) + "</a>"
           + (p.count > p.swaps.length ? ' <span class="kt-pill">' + p.count + " Möglichkeiten</span>" : "") + "</div>"
           + p.swaps.map(function (s) {
             return '<div class="kt-trade-cards">'
-              + '<span class="kt-mini r-' + s.give.rarity + '">Du gibst #' + pad(s.give.number) + " " + esc(s.give.name) + "</span>"
+              + '<span class="kt-mini r-' + s.give.rarity + '">Du gibst ' + miniLabel(s.give) + "</span>"
               + '<span aria-hidden="true">⇄</span>'
-              + '<span class="kt-mini r-' + s.get.rarity + '">Du bekommst #' + pad(s.get.number) + " " + esc(s.get.name) + "</span>"
+              + '<span class="kt-mini r-' + s.get.rarity + '">Du bekommst ' + miniLabel(s.get)
+              + (s.missing ? ' <span class="kt-pill">fehlt dir ganz</span>' : "") + "</span>"
               + '<button class="btn btn-ghost kt-suggest-btn" type="button" data-suggest="' + esc(p.login + "|" + s.give.id + "|" + s.get.id) + '">Angebot schicken</button>'
               + "</div>";
           }).join("") + "</li>";
@@ -550,7 +609,8 @@
 
   function renderRanks(box) {
     box.innerHTML = '<div class="kt-ranks" id="kt-ranks"><p class="empty">Lade Ranglisten …</p></div>';
-    var kinds = [["complete", "📖 Vollständigkeit", " Karten"], ["shiny", "✨ Shinys", " Shinys"], ["mythic", "🔥 Mythics", " Mythics"]];
+    var kinds = [["complete", "📖 Vollständigkeit", " Karten"], ["variants", "◆ Versionen", " Versionen"],
+      ["shiny", "✨ Shinys", " Shinys"], ["mythic", "🔥 Mythics", " Mythics"]];
     Promise.all(kinds.map(function (k) { return rpc("cards_leaderboard", { p_kind: k[0], p_limit: 25 }); })).then(function (lists) {
       if (state.view !== "ranks") return;
       $("kt-ranks").innerHTML = kinds.map(function (k, i) {
@@ -592,7 +652,9 @@
             + (slot5[o.code] != null ? pct(slot5[o.code]) : "–") + "</td><td>" + pct(Number(o.chance) * shinyF, 4) + "</td></tr>";
         }).join("") + "</tbody></table>"
         + '<p class="kt-hint">Pro Pack: <b>' + pct(pLeg * 100, 1) + "</b> Chance auf mindestens ein Legendary oder Mythic, <b>"
-        + pct(pMyth * 100, 1) + "</b> auf mindestens ein Mythic. Jede gezogene Karte ist mit 1 % ein Shiny – also 1 % der jeweiligen Chance.</p>";
+        + pct(pMyth * 100, 1) + "</b> auf mindestens ein Mythic. Jede gezogene Karte ist mit 1 % ein Shiny – also 1 % der jeweiligen Chance.</p>"
+        + '<p class="kt-hint">Zuerst wird die Seltenheit ausgelost, dann eine der ' + (state.info ? state.info.total : 150)
+        + " Karten – jede gleich wahrscheinlich. Eine bestimmte Karte als Mythic zu ziehen, ist also eine echte Seltenheit.</p>";
     }).catch(handleError);
   }
 
@@ -656,7 +718,7 @@
       var top = '<div class="kt-top' + (last ? " kt-top-last" : "") + (big ? " big" : "") + " r-" + c.rarity + (c.shiny ? " is-shiny" : "")
           + '" id="kt-top" tabindex="0" aria-label="Verdeckte Karte ' + (i + 1) + " von " + cards.length + ' – antippen zum Umdrehen">'
           + '<div class="kt-face kt-back' + (last ? " glow" : "") + '">' + backArt() + "</div>"
-          + '<div class="kt-face kt-front">' + cardTile(c, { reveal: true, isNew: c["new"] }) + "</div></div>";
+          + '<div class="kt-face kt-front">' + cardTile(c, { reveal: true, isNew: c.new_variant }) + "</div></div>";
       body = '<div class="kt-stage">' + under + top + "</div>"
         + '<div class="kt-dots" aria-hidden="true">' + cards.map(function (x, n) {
           return "<span" + (n < i ? ' class="done"' : n === i ? ' class="on"' : "") + "></span>";
@@ -667,7 +729,7 @@
     } else {
       var best = bestOf(cards);
       body = '<div class="kt-pack-row">' + cards.map(function (x, n) {
-        return '<div class="kt-sum" style="--i:' + n + '">' + cardTile(x, { reveal: true, isNew: x["new"] }) + "</div>";
+        return '<div class="kt-sum" style="--i:' + n + '">' + cardTile(x, { reveal: true, isNew: x.new_variant }) + "</div>";
       }).join("") + "</div>" + (wowText(best) ? '<p class="kt-pack-wow">' + wowText(best) + "</p>" : "");
       foot = (state.me && state.me.packs && state.me.packs.length
         ? '<button class="btn btn-primary" type="button" data-act="open-next">Nächstes Pack öffnen (' + state.me.packs.length + ")</button>" : "")
@@ -867,28 +929,36 @@
     var mine = which !== "other";
     var album = mine ? state.myAlbum : state.other;
     var c = album && album.cards && album.cards.filter(function (x) { return x.id === id; })[0];
-    if (!c || c.qty + c.shiny_qty === 0) return;
+    if (!c || !owns(c)) return;
     var box = $("kt-card-modal");
-    var both = mine && c.qty > 0 && c.shiny_qty > 0;
+    // Alle Versionen, seltenste zuerst; im eigenen Album lässt sich jede ausrüsten
+    var list = vars(c).slice().sort(function (a, b) {
+      return RARITY_ORDER.indexOf(b.r) - RARITY_ORDER.indexOf(a.r) || (b.s ? 1 : 0) - (a.s ? 1 : 0);
+    });
+    var versions = list.map(function (v) {
+      var on = v.r === c.rarity && !!v.s === !!c.show_shiny;
+      var label = (v.s ? "✨ " : "") + rarName(v.r) + " <small>×" + v.q + (!v.s && v.q > 1 ? " · " + (v.q - 1) + " tauschbar" : "") + "</small>";
+      return mine
+        ? '<button class="kt-ver r-' + v.r + (on ? " on" : "") + (v.s ? " sh" : "") + '" type="button" data-equip="' + esc(c.id + "-" + v.r)
+          + '" data-shiny="' + (v.s ? 1 : 0) + '" aria-pressed="' + on + '">' + label + "</button>"
+        : '<span class="kt-ver r-' + v.r + (on ? " on" : "") + (v.s ? " sh" : "") + '">' + label + "</span>";
+    }).join("");
     box.innerHTML = '<div class="kt-pack-box kt-card-box" role="dialog" aria-modal="true" aria-label="Karte">'
       + '<div class="kt-tilt' + (c.show_shiny ? " is-shiny" : "") + '"><div class="kt-tilt-in">' + cardTile(c)
       + '<span class="kt-glare" aria-hidden="true"></span></div></div>'
-      + "<p>" + (mine ? "" : esc(album.name) + " hat · ") + "Normal: <b>×" + c.qty + "</b> · Shiny: <b>×" + c.shiny_qty + "</b>"
-      + (mine && c.qty > 1 ? " · tauschbar: " + (c.qty - 1) : "") + "</p>"
-      + (both ? '<div class="kt-pack-btns"><button class="btn ' + (c.show_shiny ? "btn-ghost" : "btn-primary") + '" type="button" data-show="normal">Normal zeigen</button>'
-        + '<button class="btn ' + (c.show_shiny ? "btn-primary" : "btn-ghost") + '" type="button" data-show="shiny">✨ Shiny zeigen</button></div>' : "")
+      + "<p>" + (mine ? "Deine Versionen" + (list.length > 1 ? " – antippen zum Ausrüsten" : "") : esc(album.name) + " hat diese Versionen") + ":</p>"
+      + '<div class="kt-vers">' + versions + "</div>"
+      + (mine && c.chosen ? '<p><button class="kt-link" type="button" data-equip="' + esc(c.id) + '" data-shiny="0">↺ Automatisch die seltenste zeigen</button></p>' : "")
       + '<div class="kt-pack-btns"><button class="btn btn-ghost" type="button" data-act="card-close">Schließen</button></div></div>';
     box.hidden = false;
     if (tiltOff) tiltOff();
     tiltOff = bindTilt(box.querySelector(".kt-tilt"));
-    box.querySelectorAll("[data-show]").forEach(function (b) {
+    box.querySelectorAll("[data-equip]").forEach(function (b) {
       b.onclick = function () {
-        var shiny = b.getAttribute("data-show") === "shiny";
-        busy(b, rpc("cards_web_set_display", { p_card: id, p_shiny: shiny }, true).then(function (r) {
+        var shiny = b.getAttribute("data-shiny") === "1";
+        busy(b, rpc("cards_web_set_display", { p_card: b.getAttribute("data-equip"), p_shiny: shiny }, true).then(function (r) {
           if (!r.ok) return flash(reasonText(r), "error");
-          c.show_shiny = shiny;
-          closeCard();
-          renderView();
+          return loadMe().then(function () { renderView(); showCard(id, "mine"); });
         }));
       };
     });
@@ -955,7 +1025,10 @@
       var colors = { C: "#a99f92", U: "#74c266", R: "#5ea8ef", E: "#b07ee8", L: "#f4c04a", M: "#ff6f88" };
       var per = {};
       RARITY_ORDER.forEach(function (k) { per[k] = [0, 0]; });
-      a.cards.forEach(function (x) { per[x.rarity][1]++; if (x.qty + x.shiny_qty > 0) per[x.rarity][0]++; });
+      // pro Seltenheit: wie viele der Karten man in dieser Seltenheit hat
+      a.cards.forEach(function (x) {
+        RARITY_ORDER.forEach(function (k) { per[k][1]++; if (hasRarity(x, k)) per[k][0]++; });
+      });
       RARITY_ORDER.forEach(function (k, n) {
         var col = n % 3, row = Math.floor(n / 3), x0 = 95 + col * 310, cy = 1010 + row * 92;
         g.fillStyle = colors[k]; g.beginPath(); g.arc(x0 + 12, cy - 11, 12, 0, Math.PI * 2); g.fill();
