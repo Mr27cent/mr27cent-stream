@@ -98,3 +98,7 @@ from (values
   (88, 'item', 'Technikprobleme', null, 'Hat jemand den Stream neu gestartet?'),
   (89, 'item', 'Gute Nacht, Herde', null, 'Bis zum nächsten Stream!')
 ) v(n, k, name, login, flavor);
+
+-- Item-Bilder (Canva-KI, 04.11.2026): stream/img/karten/030.jpg ... 089.jpg (670x638)
+update cards_catalog set image = 'img/karten/' || lpad(number::text, 3, '0') || '.jpg'
+where series = 1 and kind = 'item' and number between 30 and 89;
