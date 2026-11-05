@@ -171,7 +171,9 @@ async function run(t: Tw) {
   } else if (Date.now() - last >= step - 20000) {
     // Der Kanal selbst sammelt mit wie alle anderen; Bots filtert cards_ignored in der Datenbank
     const viewers = await chatters(t);
-    out.gezaehlt = await rpc("cards_add_watch", { p_viewers: viewers, p_minutes: cfg.tick_minutes });
+    out.gezaehlt = await rpc("cards_add_watch", {
+      p_viewers: viewers, p_minutes: cfg.tick_minutes, p_stream_id: String(stream.id),
+    });
     out.chatter = viewers.length;
     const keepRhythm = Date.now() - last < 2 * step;
     await saveConfig({ last_watch_tick: new Date(keepRhythm ? last + step : Date.now()).toISOString() });

@@ -26,8 +26,10 @@
     kein_pack: "Dieses Pack gehört dir nicht (mehr).",
     schon_offen: "Dieses Pack ist schon geöffnet.",
     andere_seltenheit: "Tauschen geht nur mit Karten der gleichen Seltenheit.",
-    kein_duplikat_eigen: "Du hast diese Karte nicht doppelt – deine letzte Kopie bleibt immer bei dir.",
-    kein_duplikat_partner: "Dein Tauschpartner hat diese Karte nicht doppelt.",
+    partner_hat_nicht: "Dein Tauschpartner hat diese Karte (in dieser Seltenheit) nicht.",
+    nicht_tauschbar: "Diese Karte kann man nicht tauschen.",
+    event_einzelstueck: "Event-Karten sind Einzelstücke – die kann man nicht hochstufen.",
+    nicht_mehr_da: "Eine der Karten ist nicht mehr da – der Tausch wurde abgebrochen.",
     limit: "Tageslimit erreicht – pro Tag sind 5 Tausche möglich.",
     partner_unbekannt: "Diesen Namen gibt es im Kartenspiel noch nicht.",
     selbst: "Mit dir selbst kannst du nicht tauschen. 😉",
@@ -114,6 +116,7 @@
   var UPGRADE_NEED = 3;
   // Versionen, die sich hochstufen lassen (3 gleiche, nicht schon Mythic)
   function upgradable(c) {
+    if (c.kind === "event") return [];
     return vars(c).filter(function (v) { return v.q >= UPGRADE_NEED && v.r !== "M"; });
   }
 
@@ -267,35 +270,40 @@
     var img = owned && safeImg(c.image);
     var name = owned ? String(c.name || "") : "???";
     var cls = "kc r-" + rar + (owned ? "" : " missing") + (shiny ? " shiny" : "") + (opts.isNew ? " is-new" : "")
-      + (c.kind === "person" ? " person" : "") + (name.length > 15 ? " name-xl" : name.length > 11 ? " name-l" : "");
+      + (c.kind === "person" ? " person" : "") + (c.kind === "event" ? " event" : "") + (name.length > 15 ? " name-xl" : name.length > 11 ? " name-l" : "");
     var count = !opts.reveal && owned && versionCount(c) > 1
       ? '<span class="kc-qty" title="Versionen dieser Karte">' + versionCount(c) + "/6</span>" : "";
     var tag = opts.button ? "button" : "div";
     return "<" + tag + ' class="' + cls + '"'
       + (opts.button ? ' type="button" data-card="' + esc(c.id) + '" data-album="' + (opts.album || "mine") + '"' : "")
       + ' aria-label="' + esc("#" + pad(c.number) + " " + (owned ? c.name : "unbekannt") + (owned ? ", " + rarName(c.rarity) : "") + (shiny ? ", Shiny" : "")) + '">'
-      + '<span class="kc-no">#' + pad(c.number) + (owned && c.kind === "person" ? ' <span class="kc-kind">🦌 Herde</span>' : "") + "</span>"
+      + '<span class="kc-no">' + (c.kind === "event" ? '<span class="kc-kind">🎆 Event</span>'
+        : "#" + pad(c.number) + (owned && c.kind === "person" ? ' <span class="kc-kind">🦌 Herde</span>' : "")) + "</span>"
       + '<span class="kc-art">' + (img ? '<img src="' + esc(img) + '" alt="" loading="lazy" referrerpolicy="no-referrer">'
         : '<svg aria-hidden="true"><use href="#sym-gazelle"/></svg>') + "</span>"
       + '<span class="kc-name" title="' + esc(name) + '">' + esc(name) + "</span>"
       + '<span class="kc-rar">' + (owned ? rarName(c.rarity) : "&nbsp;") + (shiny ? " ✨" : "") + "</span>"
       + (opts.reveal ? "" : pips(c))
       + count + (opts.isNew ? '<span class="kc-new">NEU</span>' : "")
+      + (owned && c.kind === "event" && opts.trades != null
+        ? '<span class="kc-trades" title="So oft wurde diese Karte schon getauscht">' + (opts.trades ? "⇄ " + opts.trades : "Original") + "</span>" : "")
       + "</" + tag + ">";
   }
 
   function stats(album) {
     var have = 0, versions = 0, shinies = 0, dupes = 0;
+    // Event-Karten zählen nicht zur Sammlung (die gibt es nur, wenn man dabei war)
+    var packCards = album.cards.filter(function (c) { return c.kind !== "event"; });
     album.cards.forEach(function (c) {
-      if (owns(c)) have++;
-      versions += versionCount(c);
+      if (c.kind !== "event" && owns(c)) have++;
+      if (c.kind !== "event") versions += versionCount(c);
       vars(c).forEach(function (v) {
         if (v.s) shinies++;
         else if (v.q > 1) dupes++;
       });
     });
-    return { have: have, versions: versions, shinies: shinies, dupes: dupes, total: album.cards.length,
-      versionsTotal: album.cards.length * RARITY_ORDER.length };
+    return { have: have, versions: versions, shinies: shinies, dupes: dupes, total: packCards.length,
+      versionsTotal: packCards.length * RARITY_ORDER.length };
   }
 
   function filterChips(own) {
@@ -326,7 +334,9 @@
 
   function albumGrid(album, own) {
     var s = stats(album);
-    var list = filtered(album.cards, own);
+    // Event-Karten stehen in einem eigenen Album, damit das Hauptalbum für alle komplett machbar bleibt
+    var list = filtered(album.cards.filter(function (c) { return c.kind !== "event"; }), own);
+    var events = album.cards.filter(function (c) { return c.kind === "event"; });
     var isNew = function (c) { return own && state.newIds && state.newIds[c.id]; };
     var ups = own ? album.cards.reduce(function (n, c) { return n + upgradable(c).length; }, 0) : 0;
     var mc = album.my_card && album.my_card.ok ? album.my_card : null;
@@ -346,7 +356,32 @@
           // Alle besessenen Karten lassen sich groß ansehen – im eigenen und in fremden Alben
           return cardTile(c, { button: owns(c), album: own ? "mine" : "other", isNew: isNew(c) });
         }).join("") + "</div>"
-        : '<p class="empty">Keine Karten für diesen Filter.</p>');
+        : '<p class="empty">Keine Karten für diesen Filter.</p>')
+      + eventAlbum(album, events, own);
+  }
+
+  // Zweites Album: Event-Karten (gibt es nur, wenn man live dabei war – zählen nicht zur Sammlung)
+  // Tausch-Zähler der im Album gezeigten Event-Version (bei mehreren gleichen: die am wenigsten getauschte)
+  function eventTrades(album, c) {
+    var list = (album.event_copies || []).filter(function (x) { return x.card === c.id && x.r === c.rarity && !!x.s === !!c.show_shiny; });
+    return list.length ? Math.min.apply(null, list.map(function (x) { return x.trades; })) : null;
+  }
+
+  function eventAlbum(album, events, own) {
+    if (!events.length) return "";
+    var have = events.filter(owns).length;
+    var infos = {};
+    ((state.info && state.info.events) || []).forEach(function (e) { infos[e.card] = e; });
+    return '<section class="kt-event-album"><h3>🎆 Event-Album <small>' + have + " / " + events.length + "</small></h3>"
+      + '<p class="kt-hint">Event-Karten gibt es nur, wenn man bei besonderen Streams live dabei ist. '
+      + "Sie zählen nicht zur Hauptsammlung – verpasste Events sind also kein Nachteil. "
+      + "Man kann sie tauschen; die Zahl auf der Karte zeigt, wie oft sie schon getauscht wurde.</p>"
+      + '<div class="kt-grid">' + events.map(function (c) {
+        var e = infos[c.id];
+        return '<div class="kt-event-slot">' + cardTile(c, { button: owns(c), album: own ? "mine" : "other", isNew: own && state.newIds && state.newIds[c.id],
+          trades: eventTrades(album, c) })
+          + (e && !owns(c) ? '<small class="kt-event-cap">' + esc(e.name) + (e.ended ? " · vorbei" : "") + "</small>" : "") + "</div>";
+      }).join("") + "</div></section>";
   }
 
   // ── Kopf & Konto ───────────────────────────────────────────────────────────
@@ -371,6 +406,12 @@
       + " und für Kanalpunkte. "
       + "Je größer deine <a href=\"#herd\">Gazelle</a>, desto besser deine Chancen auf seltene Karten."
       + (info.collectors ? " Schon <b>" + fmtNum(info.collectors) + "</b> Sammler dabei." : "") + "</p>");
+    // Event-Karten: nur wer live dabei ist, bekommt sie
+    (info.events || []).filter(function (e) { return !e.ended; }).forEach(function (e) {
+      parts.push('<div class="kt-event"><span class="kt-event-icon" aria-hidden="true">🎆</span><div><b>Event: ' + esc(e.name) + "</b><br>"
+        + esc(e.description) + " Die Seltenheit wird ausgelost – mit den gleichen Chancen wie im Pack. "
+        + "Tauschen geht – jede Event-Karte zählt mit, wie oft sie schon den Besitzer gewechselt hat.</div></div>");
+    });
     box.innerHTML = parts.join("");
   }
 
@@ -524,12 +565,12 @@
 
   function miniLabel(c) { return "#" + pad(c.number) + " " + esc(c.name) + " <small>(" + rarName(c.rarity) + ")</small>"; }
 
-  // Doppelte Versionen (ohne Shiny) eines Albums als einzelne Tausch-Einträge
+  // Alle tauschbaren Versionen (ohne Shiny, ohne Event-Karten) eines Albums als einzelne Tausch-Einträge
   function dupesOf(album) {
     var out = [];
     album.cards.forEach(function (c) {
       vars(c).forEach(function (v) {
-        if (!v.s && v.q > 1) out.push({ id: c.id + "-" + v.r, card: c.id, number: c.number, name: c.name, rarity: v.r, qty: v.q });
+        if (!v.s && v.q > 0) out.push({ id: c.id + "-" + v.r, card: c.id, number: c.number, name: c.name, rarity: v.r, qty: v.q });
       });
     });
     return out.sort(function (a, b) {
@@ -579,27 +620,29 @@
     function opt(c, mark) {
       var miss = mark && (!myCards[c.card] ? " – Karte fehlt dir" : !myVersions[c.id] ? " – Version fehlt dir" : "");
       return '<option value="' + c.id + '">#' + pad(c.number) + " " + esc(c.name) + " · " + rarName(c.rarity)
-        + " (×" + c.qty + ")" + (miss || "") + "</option>";
+        + " (×" + c.qty + ")" + (miss || (!mark && c.qty === 1 ? " – deine letzte!" : "")) + "</option>";
     }
 
     var incoming = state.trades.filter(function (t) { return t.incoming && t.status === "pending"; });
     var outgoing = state.trades.filter(function (t) { return !t.incoming && t.status === "pending"; });
     var done = state.trades.filter(function (t) { return t.status !== "pending"; });
 
-    box.innerHTML = '<p class="kt-hint">Getauscht werden nur <b>doppelt</b> vorhandene Versionen in der <b>gleichen Seltenheit</b> '
-      + "(z. B. ein doppeltes Rare gegen ein anderes doppeltes Rare), Shinys nicht. "
+    var last = giveCard && giveCard.qty === 1;
+    box.innerHTML = '<p class="kt-hint">Tauschen kannst du jede Karte in der <b>gleichen Seltenheit</b> '
+      + "(z. B. ein Rare gegen ein anderes Rare) – auch deine letzte, dann ist sie danach weg. Shinys bleiben bei dir. Event-Karten bekommen bei jedem Tausch +1 auf ihren Tausch-Zähler. "
       + "Heute: <b>" + m.trades_today + " / " + m.trades_per_day + "</b> Tausche. Angebote über die Webseite gelten 48 Stunden.</p>"
       + suggestionsHtml()
       + '<div class="kt-trade-new card-inner"><h3>Neues Angebot</h3>'
       + '<label>Tauschpartner<input id="kt-partner" type="search" list="kt-partner-names" placeholder="Twitch-Name" autocomplete="off" value="'
       + esc(state.tradePartner ? state.tradePartner.login : "") + '"></label><datalist id="kt-partner-names"></datalist>'
       + (state.tradePartner && !state.tradePartner.ok ? '<p class="kt-note">' + esc(reasonText(state.tradePartner)) + "</p>" : "")
-      + '<label>Ich gebe<select id="kt-give"><option value="">– eine deiner doppelten Karten –</option>' + mine.map(function (c) { return opt(c); }).join("") + "</select></label>"
+      + '<label>Ich gebe<select id="kt-give"><option value="">– eine deiner Karten –</option>' + mine.map(function (c) { return opt(c); }).join("") + "</select></label>"
+      + (last ? '<p class="kt-note">⚠️ Das ist deine letzte Karte dieser Version – nach dem Tausch ist sie aus deinem Album weg.</p>' : "")
       + '<label>Ich möchte<select id="kt-want"' + (partner ? "" : " disabled") + '><option value="">'
-      + (partner ? (theirs.length ? "– eine doppelte Karte von " + esc(partner.name) + " –" : "– keine passende doppelte Karte –") : "– erst Tauschpartner wählen –")
+      + (partner ? (theirs.length ? "– eine Karte von " + esc(partner.name) + " –" : "– keine Karte in dieser Seltenheit –") : "– erst Tauschpartner wählen –")
       + "</option>" + theirs.map(function (c) { return opt(c, true); }).join("") + "</select></label>"
       + '<button class="btn btn-primary" type="button" id="kt-offer"' + (mine.length ? "" : " disabled") + ">Angebot schicken</button>"
-      + (mine.length ? "" : '<p class="kt-note">Du hast noch keine doppelten Versionen.</p>')
+      + (mine.length ? "" : '<p class="kt-note">Du hast noch keine tauschbaren Karten.</p>')
       + "</div>"
       + "<h3>Angebote an dich</h3>" + (incoming.length ? '<ul class="kt-trades">' + incoming.map(tradeRow).join("") + "</ul>" : '<p class="empty">Keine offenen Angebote.</p>')
       + "<h3>Deine offenen Angebote</h3>" + (outgoing.length ? '<ul class="kt-trades">' + outgoing.map(tradeRow).join("") + "</ul>" : '<p class="empty">Keine.</p>')
@@ -642,10 +685,11 @@
     var list = state.suggest || [];
     if (!list.length) {
       return '<div class="kt-suggest card-inner"><h3>💡 Tauschvorschläge</h3><p class="empty">Gerade keine passenden Tausche. '
-        + "Sobald jemand doppelt hat, was dir fehlt (und umgekehrt), erscheint das hier.</p></div>";
+        + "Sobald jemand hat, was dir fehlt (und umgekehrt), erscheint das hier.</p></div>";
     }
     return '<div class="kt-suggest card-inner"><h3>💡 Tauschvorschläge</h3>'
-      + '<p class="kt-hint">Beide bekommen eine Version, die ihnen noch fehlt – ganz fehlende Karten stehen oben.</p><ul class="kt-trades">'
+      + '<p class="kt-hint">Beide bekommen eine Version, die ihnen noch fehlt – Tausche mit doppelten Karten stehen oben, '
+      + "dann ganz fehlende Karten.</p><ul class=\"kt-trades\">"
       + list.map(function (p) {
         return '<li class="kt-trade"><div class="kt-trade-who"><a href="#karten/@' + esc(p.login) + '">' + esc(p.partner) + "</a>"
           + (p.count > p.swaps.length ? ' <span class="kt-pill">' + p.count + " Möglichkeiten</span>" : "") + "</div>"
@@ -992,7 +1036,9 @@
     });
     var versions = list.map(function (v) {
       var on = v.r === c.rarity && !!v.s === !!c.show_shiny;
-      var label = (v.s ? "✨ " : "") + rarName(v.r) + " <small>×" + v.q + (!v.s && v.q > 1 ? " · " + (v.q - 1) + " tauschbar" : "") + "</small>";
+      var copies = c.kind === "event" ? (album.event_copies || []).filter(function (x) { return x.card === c.id && x.r === v.r && !!x.s === !!v.s; }) : [];
+      var label = (v.s ? "✨ " : "") + rarName(v.r) + " <small>×" + v.q
+        + (copies.length ? " · " + copies.map(function (x) { return x.trades ? x.trades + "× getauscht" : "Original"; }).join(", ") : "") + "</small>";
       return mine
         ? '<button class="kt-ver r-' + v.r + (on ? " on" : "") + (v.s ? " sh" : "") + '" type="button" data-equip="' + esc(c.id + "-" + v.r)
           + '" data-shiny="' + (v.s ? 1 : 0) + '" aria-pressed="' + on + '">' + label + "</button>"
@@ -1000,7 +1046,7 @@
     }).join("");
     var ups = mine ? upgradable(c).sort(function (a, b) { return RARITY_ORDER.indexOf(a.r) - RARITY_ORDER.indexOf(b.r); }) : [];
     box.innerHTML = '<div class="kt-pack-box kt-card-box" role="dialog" aria-modal="true" aria-label="Karte">'
-      + '<div class="kt-tilt' + (c.show_shiny ? " is-shiny" : "") + '"><div class="kt-tilt-in">' + cardTile(c)
+      + '<div class="kt-tilt' + (c.show_shiny ? " is-shiny" : "") + '"><div class="kt-tilt-in">' + cardTile(c, { trades: c.kind === "event" ? eventTrades(album, c) : null })
       + '<span class="kt-glare" aria-hidden="true"></span></div></div>'
       + "<p>" + (mine ? "Deine Versionen" + (list.length > 1 ? " – antippen zum Ausrüsten" : "") : esc(album.name) + " hat diese Versionen") + ":</p>"
       + '<div class="kt-vers">' + versions + "</div>"
@@ -1107,6 +1153,7 @@
       RARITY_ORDER.forEach(function (k) { per[k] = [0, 0]; });
       // pro Seltenheit: wie viele der Karten man in dieser Seltenheit hat
       a.cards.forEach(function (x) {
+        if (x.kind === "event") return;
         RARITY_ORDER.forEach(function (k) { per[k][1]++; if (hasRarity(x, k)) per[k][0]++; });
       });
       RARITY_ORDER.forEach(function (k, n) {

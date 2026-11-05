@@ -28,12 +28,17 @@
   OBS-Overlay `karten-overlay.html/.js/.css` (Legendary/Mythic/Shiny, RPC `cards_overlay_feed`, `?demo=1`).
   Datenbank-Migrationen + Edge Function `cards-tick` liegen unter `supabase/` (nur Backup, Supabase-Projekt
   `pgqpgvtscyxpghspnhdw`; Änderungen dort per Migration einspielen und hier ablegen).
-  Karten-Modell (seit 04.11.2026): 150 Karten, **jede in allen 6 Seltenheiten + Shiny**; Seltenheit steht an der
+  Karten-Modell (seit 04.11.2026): keine Platzhalter mehr – die Kartenzahl wächst mit der Herde (Stand 05.11.: 89), **jede Karte in allen 6 Seltenheiten + Shiny**; Seltenheit steht an der
   gezogenen Version (`S1-017-L`), nicht im Katalog. Album = 1 Platz pro Karte, zeigt seltenste oder ausgerüstete Version.
   Karten sind `person` (Twitch-Profilbild, nur mit Zustimmung der Person; `cards-tick` holt es) oder `item`.
   Eintragen: `cards_admin_set_card(nr, kind, name, login, image, flavor)` per SQL. Belegung: #001 Mr27cent,
   danach alle `!herde`-Sichtbaren nach Zuschauzeit (Liste aus `herd.members` der Apps-Script-API, Feld `name`),
   dann 40 Gazellen- und 20 Stream-Items (`supabase/migrations/20261104_cards_series1_content.sql`).
+  **Neue Herdenmitglieder:** Wenn der Nutzer sagt „aktualisieren“, neue `!herde`-Leute per `cards_admin_add_person(login, name)`
+  hinten anhängen (nächste freie Nummer < 900). Event-Karten liegen ab #901 (`kind = 'event'`, nicht in Packs, eigenes Event-Album, zählen nicht zur Sammlung;
+  tauschbar als Einzelstück mit Tausch-Zähler in `cards_event_copies`, nicht hochstufbar),
+  Events in `cards_events` (z. B. `stream1-2027`: 30 min im 1. Stream 2027 → Karte mit zufälliger Seltenheit; `cards-tick` v4 gibt die Stream-ID mit).
+  Tauschen: jede Version (auch die letzte), gleiche Seltenheit, keine Shinys. Migration `20261105_cards_events_trades.sql`.
   **Ende Dezember 2026 neu sortieren** (Zuschauzeit Jahresende, neue `!herde`-Leute dazu) – vor dem Start.
   Hochstufen: 3 gleiche Versionen → 1 eine Seltenheit höher (2 werden verbraucht, 1 bleibt), RPC `cards_upgrade`/`cards_web_upgrade`.
   Errungenschaften (Steam-artig, mit % der Sammler): Tabellen `cards_achievements` + `cards_achievement_unlocks`,

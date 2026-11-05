@@ -92,6 +92,31 @@ button.kt-pill-up {
   background: color-mix(in srgb, var(--accent) 14%, transparent); border: 1.5px solid var(--accent);
 }
 .kt-up-title { margin: .8rem 0 .3rem; font-weight: 700; }
+/* Event-Karten */
+.kt-event {
+  display: flex; gap: .8rem; align-items: center; margin-top: .8rem; padding: .7rem 1rem; border-radius: 14px;
+  background: linear-gradient(120deg, color-mix(in srgb, #5ab8ff 18%, transparent), color-mix(in srgb, #c77dff 18%, transparent));
+  border: 1.5px solid color-mix(in srgb, #c77dff 60%, transparent);
+}
+.kt-event-icon { font-size: 1.8rem; }
+.kc.event .kc-kind { color: #c77dff; }
+/* Tausch-Zähler auf Event-Karten: „Original“ oder „⇄ 3“ */
+.kc-trades {
+  position: absolute; top: .3rem; right: .3rem; z-index: 3; padding: 0 .4rem; border-radius: 999px;
+  font-size: .7rem; font-weight: 800; color: #fff; background: #8d4cc8; box-shadow: 0 0 0 1.5px #111;
+}
+.kt-top .kc-trades, .kt-tilt-in .kc-trades { font-size: .95rem; top: .55rem; right: .55rem; }
+.kt-event-album {
+  margin-top: 1.6rem; padding: 1rem; border-radius: 16px;
+  background: linear-gradient(120deg, color-mix(in srgb, #5ab8ff 10%, transparent), color-mix(in srgb, #c77dff 12%, transparent));
+  border: 1.5px dashed color-mix(in srgb, #c77dff 55%, transparent);
+}
+.kt-event-album h3 { margin: 0 0 .2rem; }
+.kt-event-album h3 small { font-size: .85rem; color: var(--text-dim); margin-left: .4rem; }
+.kt-event-album .kt-hint { margin: 0 0 .8rem; }
+.kt-event-slot { display: grid; gap: .3rem; }
+.kt-event-cap { text-align: center; font-size: .75rem; font-weight: 700; color: var(--text-dim); }
+.kc.event.missing { border-color: color-mix(in srgb, #c77dff 60%, transparent); opacity: .6; }
 button.kt-up { cursor: pointer; }
 button.kt-up:hover { background: var(--r); color: #fff; }
 .kt-card-stats { margin: .6rem 0 0; font-size: .9rem; color: var(--text-dim); min-height: 1.2em; }
