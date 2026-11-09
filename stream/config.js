@@ -211,7 +211,7 @@ window.STREAM_CONFIG = {
     { q: "Wie sehe ich meine Gazelle?",  a: "Schreib !gazelle im Chat – dann siehst du deine Stufe und die Zeit bis zum nächsten Aufstieg." },
     { q: "Wie funktioniert Hangman?",    a: "Im Stream wird ein Wort gesucht. Mit !e rätst du den Buchstaben E, mit !wort HAUS das ganze Wort. Jeder richtige Buchstabe bringt Punkte, wer das Wort löst, bekommt einen Bonus – je früher, desto mehr. Nach einem Fehler hast du 10 Sekunden Pause." },
     { q: "Wie funktioniert das Sammelspiel?", a: "Melde dich auf der Spielseite mit Twitch an. Während du den Stream schaust, sammelst du automatisch Punkte, kaufst Gebäude und schaltest neue Phasen frei – für Sterne steigst du in der Rangliste auf." },
-    { q: "Was sind die Herden-Karten?", a: "Ab dem 1. Januar 2027 sammelst du 150 Karten in 6 Seltenheiten – jede auch als seltenes Shiny. Zum Start gibt es 3 Starter-Packs, jede Woche ein Gratis-Pack (Subs zwei), alle 2 Stunden Zuschauzeit automatisch ein Zuschau-Pack und Packs für Kanalpunkte. Je größer deine Gazelle, desto besser deine Chancen. Doppelte Karten kannst du tauschen." }
+    { q: "Was sind die Herden-Karten?", a: "Ab dem 1. Januar 2027 sammelst du Karten der Herde, Savannentiere und Stream-Karten – jede in 6 Seltenheiten und auch als seltenes Shiny. Mit der Herde wächst auch die Zahl der Karten. Zum Start gibt es 3 Starter-Packs, jede Woche ein Gratis-Pack (Subs zwei), alle 2 Stunden Zuschauzeit automatisch ein Zuschau-Pack und Packs für Kanalpunkte. Je größer deine Gazelle, desto besser deine Chancen. Doppelte Karten kannst du tauschen." }
   ],
 
   // Herden-Karten (#karten, karten.js): Supabase-Projekt des Kartenspiels.

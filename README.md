@@ -9,6 +9,7 @@
 > | `stream/` | die Webseite (wird veröffentlicht) |
 > | `apps-script/` | `Code.gs` fürs Google Apps Script |
 > | `hangman/` | Hangman-Overlay für OBS (Schlüssel nur in deiner lokalen Kopie) |
+> | `supabase/` | Sicherung der Datenbank-Änderungen und der Function `cards-tick` (Herden-Karten) |
 
 Eigene Stream-Webseite im Savannen-Look mit Live-Dashboard, Clip des Jahres,
 Highscores (Hangman & Idle-Game), Streamplan, Spiele-Historie, Emotes,
@@ -18,10 +19,15 @@ Tag/Nacht-Ansicht über den ☀️/🌙-Knopf oben rechts.
 
 Bereiche als Reiter im Seitenmenü links (am Computer über ☰ einklappbar, am Handy aufklappbar).
 
-## Ordner – wichtig beim Hochladen
-- **HOCHLADEN** – genau diesen Ordner zu Cloudflare ziehen. Darin ist nur die Webseite.
-- **NICHT HOCHLADEN** – diese Anleitung und das Apps Script (`Code.gs`). Gehört nicht ins
-  Internet, sonst kann jeder den Aufbau der Seite nachlesen.
+## Herden-Karten (Sammelkarten, Start 01.01.2027)
+Reiter **🃏 Herden-Karten** (`#karten`, fremdes Album: `#karten/@name`). Zuschauer öffnen Packs
+und sammeln Karten der Herde, Savannentiere und Stream-Karten – jede in 6 Seltenheiten und als Shiny.
+- Webseite: `karten.js`, `karten.css`, `karten-sound.js`; Bilder in `img/karten/`.
+- OBS-Overlay für seltene Karten: `https://mr27cent.pages.dev/karten-overlay.html`
+  (Browserquelle 1920 × 1080; `?demo=1` zeigt Beispiele, `?sound=0` schaltet den Ton ab).
+- Regeln, Chancen und Karten stehen in der Supabase-Datenbank (Login mit Twitch). Der Ordner
+  `supabase/` ist nur die Sicherung davon.
+- Das ausführliche Konzept liegt lokal in `Kartenspiel-Konzept.md` (nicht in diesem Repo).
 
 ## Für Marken & Partner (Media Kit)
 Unter `…/#partner` gibt es eine eigene Seite für Sponsoren (nicht im Menü, verlinkt unten
@@ -84,8 +90,8 @@ Die Seite liest die Blätter `HANGMAN` und `IDLE` (Zeile 1 = Überschrift):
 |---|---|---|---|
 
 Sortiert wird automatisch, angezeigt werden die Top 10.
-*Wie die Spiele ihre Punkte dorthin schreiben, hängt davon ab, wo Hangman und das
-Idle-Game laufen – das klären wir noch.*
+Hangman schickt seine Punkte selbst dorthin (Schlüssel `HANGMAN_KEY`, siehe `hangman/`).
+Die Rangliste des Sammelspiels kommt direkt aus dessen Supabase-Datenbank.
 
 ### 6. Abstimmung
 Blatt `UMFRAGE` anlegen (Zeile 1 = Überschrift):
@@ -170,7 +176,7 @@ bitte eigene Angaben eintragen, bevor die Seite öffentlich geht.
 
 ## Sicherheit & Datenschutz
 - `_headers` setzt bei Cloudflare strenge Sicherheits-Header (u. a. Content-Security-Policy:
-  nur eigene Skripte, Daten nur von Google, Bilder & Videos nur von Twitch).
+  nur eigene Skripte, Daten nur von Google und Supabase, Bilder & Videos nur von Twitch).
 - Nach Saisonende werden die Zuschauer-Daten des Vorjahres automatisch gelöscht –
   nur die Top 3 bleiben für die Ruhmeshalle (`cleanupOldSeasons`).
 - Das Google Sheet **nicht öffentlich freigeben**; Client-Secret und Token liegen nur in
